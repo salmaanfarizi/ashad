@@ -7,6 +7,7 @@ import {
   TrendingDown,
   PieChart,
   Calendar,
+  Download,
 } from "lucide-react";
 import {
   AreaChart,
@@ -23,6 +24,8 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { generateProfitLossReportPDF } from "@/lib/pdfUtils";
+import { toast } from "sonner";
 
 interface ReportData {
   totalRevenue: number;
@@ -42,6 +45,14 @@ const COLORS = [
   "hsl(var(--chart-4))",
   "hsl(var(--chart-5))",
 ];
+
+const DATE_RANGE_LABELS: { [key: string]: string } = {
+  week: "This Week",
+  month: "This Month",
+  quarter: "This Quarter",
+  year: "This Year",
+  all: "All Time",
+};
 
 export default function Reports() {
   const [reportData, setReportData] = useState<ReportData>({
@@ -110,6 +121,19 @@ export default function Reports() {
     }).format(amount);
   };
 
+  const handleExportPDF = () => {
+    generateProfitLossReportPDF(
+      reportData.totalRevenue,
+      reportData.totalCost,
+      reportData.totalExpenses,
+      reportData.grossProfit,
+      reportData.netProfit,
+      reportData.expensesByCategory,
+      DATE_RANGE_LABELS[dateRange]
+    );
+    toast.success("Report exported successfully!");
+  };
+
   const profitLossData = [
     { name: "Revenue", value: reportData.totalRevenue, fill: "hsl(var(--success))" },
     { name: "Cost", value: reportData.totalCost, fill: "hsl(var(--primary))" },
@@ -123,19 +147,25 @@ export default function Reports() {
           <h1 className="page-title font-heading">Reports & Analytics</h1>
           <p className="page-description">Analyze your business performance</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="input-field w-40"
-          >
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="quarter">This Quarter</option>
-            <option value="year">This Year</option>
-            <option value="all">All Time</option>
-          </select>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="input-field w-40"
+            >
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+              <option value="quarter">This Quarter</option>
+              <option value="year">This Year</option>
+              <option value="all">All Time</option>
+            </select>
+          </div>
+          <button onClick={handleExportPDF} className="btn-primary flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Export PDF
+          </button>
         </div>
       </div>
 
@@ -260,7 +290,16 @@ export default function Reports() {
 
       {/* Profit & Loss Statement */}
       <div className="stat-card">
-        <h3 className="text-lg font-semibold mb-4">Profit & Loss Summary</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Profit & Loss Summary</h3>
+          <button
+            onClick={handleExportPDF}
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
+            <Download className="h-4 w-4" />
+            Download PDF
+          </button>
+        </div>
         <div className="space-y-3">
           <div className="flex items-center justify-between py-3 border-b border-border">
             <span className="font-medium">Total Revenue (Sales)</span>
