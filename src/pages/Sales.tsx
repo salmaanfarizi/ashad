@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { generateInvoicePDF } from "@/lib/pdfUtils";
 
 interface Sale {
   id: string;
@@ -115,6 +116,29 @@ export default function Sales() {
     }).format(amount);
   };
 
+  const handleGenerateInvoice = (sale: Sale) => {
+    const product = products.find((p) => p.id === sale.product_id);
+    const invoiceNumber = `INV-${sale.id.slice(0, 8).toUpperCase()}`;
+
+    generateInvoicePDF({
+      invoiceNumber,
+      date: new Date(sale.sale_date).toLocaleDateString(),
+      customerName: sale.customer_name || "Walk-in Customer",
+      items: [
+        {
+          description: product?.name || sale.notes || "Product/Service",
+          quantity: sale.quantity,
+          unitPrice: sale.unit_price,
+          total: sale.total_amount,
+        },
+      ],
+      subtotal: sale.total_amount,
+      total: sale.total_amount,
+    });
+
+    toast.success("Invoice generated successfully!");
+  };
+
   return (
     <MainLayout>
       <div className="flex items-center justify-between mb-8">
@@ -160,12 +184,22 @@ export default function Sales() {
                     {sale.notes || "-"}
                   </td>
                   <td className="text-right">
-                    <button
-                      onClick={() => handleDelete(sale.id)}
-                      className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => handleGenerateInvoice(sale)}
+                        className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                        title="Generate Invoice"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(sale.id)}
+                        className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
