@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Edit, Users } from "lucide-react";
+import { Plus, Trash2, Edit, Users, Mail, CreditCard, History, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface Debtor {
@@ -15,17 +15,38 @@ interface Debtor {
   created_at: string;
 }
 
+interface Payment {
+  id: string;
+  debtor_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
 export default function Debtors() {
   const [debtors, setDebtors] = useState<Debtor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [editingDebtor, setEditingDebtor] = useState<Debtor | null>(null);
+  const [selectedDebtor, setSelectedDebtor] = useState<Debtor | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     email: "",
     amount_owed: "",
     due_date: "",
+    notes: "",
+  });
+  const [paymentData, setPaymentData] = useState({
+    amount: "",
+    payment_date: new Date().toISOString().split("T")[0],
+    payment_method: "cash",
     notes: "",
   });
 
@@ -46,6 +67,16 @@ export default function Debtors() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchPayments(debtorId: string) {
+    const { data, error } = await supabase
+      .from("debtor_payments")
+      .select("*")
+      .eq("debtor_id", debtorId)
+      .order("payment_date", { ascending: false });
+
+    if (data) setPayments(data);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -85,6 +116,77 @@ export default function Debtors() {
     fetchDebtors();
   }
 
+  async function handlePaymentSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!selectedDebtor) return;
+
+    const paymentAmount = parseFloat(paymentData.amount);
+    if (paymentAmount <= 0) {
+      toast.error("Payment amount must be greater than 0");
+      return;
+    }
+
+    const { error: paymentError } = await supabase.from("debtor_payments").insert({
+      debtor_id: selectedDebtor.id,
+      amount: paymentAmount,
+      payment_date: paymentData.payment_date,
+      payment_method: paymentData.payment_method,
+      notes: paymentData.notes || null,
+    });
+
+    if (paymentError) {
+      toast.error("Failed to record payment");
+      return;
+    }
+
+    // Update debtor's amount owed
+    const newAmountOwed = Math.max(0, selectedDebtor.amount_owed - paymentAmount);
+    const { error: updateError } = await supabase
+      .from("debtors")
+      .update({ amount_owed: newAmountOwed })
+      .eq("id", selectedDebtor.id);
+
+    if (updateError) {
+      toast.error("Failed to update balance");
+      return;
+    }
+
+    toast.success(`Payment of ${formatCurrency(paymentAmount)} recorded`);
+    closePaymentModal();
+    fetchDebtors();
+  }
+
+  async function handleSendReminder(debtor: Debtor) {
+    if (!debtor.email) {
+      toast.error("No email address for this debtor");
+      return;
+    }
+
+    setSendingReminder(debtor.id);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("send-reminder", {
+        body: {
+          debtor_id: debtor.id,
+          debtor_name: debtor.name,
+          debtor_email: debtor.email,
+          amount_owed: debtor.amount_owed,
+          due_date: debtor.due_date,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success(`Reminder sent to ${debtor.email}`);
+    } catch (error: any) {
+      console.error("Failed to send reminder:", error);
+      toast.error("Failed to send reminder");
+    } finally {
+      setSendingReminder(null);
+    }
+  }
+
   async function handleDelete(id: string) {
     const { error } = await supabase.from("debtors").delete().eq("id", id);
     if (error) {
@@ -108,6 +210,23 @@ export default function Debtors() {
     setShowModal(true);
   }
 
+  function openPaymentModal(debtor: Debtor) {
+    setSelectedDebtor(debtor);
+    setPaymentData({
+      amount: "",
+      payment_date: new Date().toISOString().split("T")[0],
+      payment_method: "cash",
+      notes: "",
+    });
+    setShowPaymentModal(true);
+  }
+
+  async function openHistoryModal(debtor: Debtor) {
+    setSelectedDebtor(debtor);
+    await fetchPayments(debtor.id);
+    setShowHistoryModal(true);
+  }
+
   function closeModal() {
     setShowModal(false);
     setEditingDebtor(null);
@@ -119,6 +238,23 @@ export default function Debtors() {
       due_date: "",
       notes: "",
     });
+  }
+
+  function closePaymentModal() {
+    setShowPaymentModal(false);
+    setSelectedDebtor(null);
+    setPaymentData({
+      amount: "",
+      payment_date: new Date().toISOString().split("T")[0],
+      payment_method: "cash",
+      notes: "",
+    });
+  }
+
+  function closeHistoryModal() {
+    setShowHistoryModal(false);
+    setSelectedDebtor(null);
+    setPayments([]);
   }
 
   const formatCurrency = (amount: number) => {
@@ -214,6 +350,32 @@ export default function Debtors() {
                   <td className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button
+                        onClick={() => openPaymentModal(debtor)}
+                        className="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                        title="Record Payment"
+                      >
+                        <CreditCard className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => openHistoryModal(debtor)}
+                        className="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                        title="Payment History"
+                      >
+                        <History className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleSendReminder(debtor)}
+                        disabled={!debtor.email || sendingReminder === debtor.id}
+                        className={`p-2 rounded-lg transition-colors ${
+                          debtor.email
+                            ? "text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                            : "text-muted-foreground/50 cursor-not-allowed"
+                        }`}
+                        title={debtor.email ? "Send Email Reminder" : "No email address"}
+                      >
+                        <Mail className={`h-4 w-4 ${sendingReminder === debtor.id ? "animate-pulse" : ""}`} />
+                      </button>
+                      <button
                         onClick={() => openEditModal(debtor)}
                         className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
                       >
@@ -234,7 +396,7 @@ export default function Debtors() {
         </table>
       </div>
 
-      {/* Modal */}
+      {/* Add/Edit Debtor Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
@@ -317,6 +479,138 @@ export default function Debtors() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Record Payment Modal */}
+      {showPaymentModal && selectedDebtor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Record Payment</h2>
+              <button onClick={closePaymentModal} className="p-1 hover:bg-muted rounded">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 mb-4">
+              <p className="text-sm text-muted-foreground">Recording payment for</p>
+              <p className="font-semibold">{selectedDebtor.name}</p>
+              <p className="text-sm text-primary">
+                Current balance: {formatCurrency(selectedDebtor.amount_owed)}
+              </p>
+            </div>
+            <form onSubmit={handlePaymentSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Amount *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={paymentData.amount}
+                  onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
+                  className="input-field"
+                  required
+                  min="0.01"
+                  max={selectedDebtor.amount_owed}
+                  placeholder="Payment amount"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Payment Date</label>
+                  <input
+                    type="date"
+                    value={paymentData.payment_date}
+                    onChange={(e) => setPaymentData({ ...paymentData, payment_date: e.target.value })}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Method</label>
+                  <select
+                    value={paymentData.payment_method}
+                    onChange={(e) => setPaymentData({ ...paymentData, payment_method: e.target.value })}
+                    className="input-field"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="card">Card</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <input
+                  type="text"
+                  value={paymentData.notes}
+                  onChange={(e) => setPaymentData({ ...paymentData, notes: e.target.value })}
+                  className="input-field"
+                  placeholder="Optional notes"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={closePaymentModal} className="btn-secondary flex-1">
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary flex-1">
+                  Record Payment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Payment History Modal */}
+      {showHistoryModal && selectedDebtor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg p-6 animate-scale-in max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Payment History</h2>
+              <button onClick={closeHistoryModal} className="p-1 hover:bg-muted rounded">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 mb-4">
+              <p className="font-semibold">{selectedDebtor.name}</p>
+              <p className="text-sm text-primary">
+                Current balance: {formatCurrency(selectedDebtor.amount_owed)}
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {payments.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No payments recorded yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {payments.map((payment) => (
+                    <div key={payment.id} className="border border-border rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-green-600">
+                          {formatCurrency(payment.amount)}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(payment.payment_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded capitalize">
+                          {payment.payment_method?.replace("_", " ") || "Cash"}
+                        </span>
+                        {payment.notes && (
+                          <span className="text-xs text-muted-foreground">{payment.notes}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="pt-4 border-t mt-4">
+              <button onClick={closeHistoryModal} className="btn-secondary w-full">
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
