@@ -66,8 +66,8 @@ export function generateInvoicePDF(data: InvoiceData): void {
     body: data.items.map((item) => [
       item.description,
       item.quantity.toString(),
-      `$${item.unitPrice.toFixed(2)}`,
-      `$${item.total.toFixed(2)}`,
+      `SAR ${item.unitPrice.toFixed(2)}`,
+      `SAR ${item.total.toFixed(2)}`,
     ]),
     headStyles: {
       fillColor: [14, 165, 233],
@@ -101,11 +101,11 @@ export function generateInvoicePDF(data: InvoiceData): void {
   doc.setTextColor(71, 85, 105);
   doc.setFont("helvetica", "normal");
   doc.text("Subtotal:", 130, finalY + 10);
-  doc.text(`$${data.subtotal.toFixed(2)}`, 190, finalY + 10, { align: "right" });
+  doc.text(`SAR ${data.subtotal.toFixed(2)}`, 190, finalY + 10, { align: "right" });
 
   if (data.tax) {
     doc.text("Tax:", 130, finalY + 20);
-    doc.text(`$${data.tax.toFixed(2)}`, 190, finalY + 20, { align: "right" });
+    doc.text(`SAR ${data.tax.toFixed(2)}`, 190, finalY + 20, { align: "right" });
   }
 
   doc.setDrawColor(226, 232, 240);
@@ -115,7 +115,7 @@ export function generateInvoicePDF(data: InvoiceData): void {
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text("Total:", 130, finalY + 35);
-  doc.text(`$${data.total.toFixed(2)}`, 190, finalY + 35, { align: "right" });
+  doc.text(`SAR ${data.total.toFixed(2)}`, 190, finalY + 35, { align: "right" });
 
   // Footer
   doc.setTextColor(148, 163, 184);
@@ -225,10 +225,7 @@ export function generateProfitLossReportPDF(
 
   // Format currency helper
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
+    return `SAR ${amount.toLocaleString("en-SA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   // Profit & Loss Statement
