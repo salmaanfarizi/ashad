@@ -96,9 +96,9 @@ export default function Expenses() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-SA", {
       style: "currency",
-      currency: "USD",
+      currency: "SAR",
     }).format(amount);
   };
 

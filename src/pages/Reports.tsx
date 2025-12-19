@@ -115,9 +115,9 @@ export default function Reports() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-SA", {
       style: "currency",
-      currency: "USD",
+      currency: "SAR",
     }).format(amount);
   };
 

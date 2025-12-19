@@ -84,9 +84,9 @@ export default function Cash() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-SA", {
       style: "currency",
-      currency: "USD",
+      currency: "SAR",
     }).format(amount);
   };
 
