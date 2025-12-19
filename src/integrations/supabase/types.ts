@@ -47,6 +47,44 @@ export type Database = {
         }
         Relationships: []
       }
+      creditor_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          creditor_id: string
+          id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          creditor_id: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          creditor_id?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creditor_payments_creditor_id_fkey"
+            columns: ["creditor_id"]
+            isOneToOne: false
+            referencedRelation: "creditors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creditors: {
         Row: {
           amount_owed: number

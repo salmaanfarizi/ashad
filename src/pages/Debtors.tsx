@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Edit, Users, Mail, CreditCard, History, X } from "lucide-react";
+import { Plus, Trash2, Edit, Users, Mail, CreditCard, History, X, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { generatePaymentReceiptPDF } from "@/lib/pdfUtils";
 
 interface Debtor {
   id: string;
@@ -583,15 +584,47 @@ export default function Debtors() {
                 <p className="text-center text-muted-foreground py-8">No payments recorded yet</p>
               ) : (
                 <div className="space-y-3">
-                  {payments.map((payment) => (
+                  {payments.map((payment, index) => (
                     <div key={payment.id} className="border border-border rounded-lg p-3">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-green-600">
                           {formatCurrency(payment.amount)}
                         </span>
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(payment.payment_date).toLocaleDateString()}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(payment.payment_date).toLocaleDateString()}
+                          </span>
+                          <button
+                            onClick={() => {
+                              // Calculate balances for the receipt
+                              const previousPayments = payments
+                                .slice(0, index)
+                                .reduce((sum, p) => sum + p.amount, 0);
+                              const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+                              const originalBalance = selectedDebtor!.amount_owed + totalPaid;
+                              const balanceAfterThisPayment = originalBalance - previousPayments - payment.amount;
+                              const balanceBeforeThisPayment = balanceAfterThisPayment + payment.amount;
+
+                              generatePaymentReceiptPDF({
+                                receiptNumber: payment.id.slice(0, 8).toUpperCase(),
+                                paymentDate: new Date(payment.payment_date).toLocaleDateString(),
+                                payerName: selectedDebtor!.name,
+                                payerEmail: selectedDebtor!.email,
+                                payerPhone: selectedDebtor!.phone,
+                                amount: payment.amount,
+                                paymentMethod: payment.payment_method || "cash",
+                                previousBalance: balanceBeforeThisPayment,
+                                newBalance: balanceAfterThisPayment,
+                                notes: payment.notes,
+                              });
+                              toast.success("Receipt downloaded");
+                            }}
+                            className="p-1 text-primary hover:bg-primary/10 rounded transition-colors"
+                            title="Download Receipt"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs bg-muted px-2 py-0.5 rounded capitalize">
