@@ -11,9 +11,13 @@ import {
   BarChart3,
   Camera,
   LogOut,
+  Menu,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useState } from "react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -28,7 +32,7 @@ const navigation = [
   { name: "Camera", href: "/camera", icon: Camera },
 ];
 
-export function Sidebar() {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -37,54 +41,87 @@ export function Sidebar() {
     navigate('/auth');
   };
 
+  const handleLinkClick = () => {
+    onNavigate?.();
+  };
+
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-sidebar">
-      <div className="flex h-full flex-col">
-        {/* Logo */}
-        <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Package className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-semibold text-sidebar-foreground">
-            BizManager
-          </span>
+    <div className="flex h-full flex-col">
+      {/* Logo */}
+      <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+          <Package className="h-5 w-5 text-primary-foreground" />
         </div>
+        <span className="text-lg font-semibold text-sidebar-foreground">
+          BizManager
+        </span>
+      </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <ul className="space-y-1">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <li key={item.name}>
-                  <Link
-                    to={item.href}
-                    className={`sidebar-link ${isActive ? "sidebar-link-active" : ""}`}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.name}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <ul className="space-y-1">
+          {navigation.map((item) => {
+            const isActive = location.pathname === item.href;
+            return (
+              <li key={item.name}>
+                <Link
+                  to={item.href}
+                  onClick={handleLinkClick}
+                  className={`sidebar-link ${isActive ? "sidebar-link-active" : ""}`}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.name}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
 
-        {/* Footer */}
-        <div className="border-t border-sidebar-border p-4 space-y-3">
+      {/* Footer */}
+      <div className="border-t border-sidebar-border p-4 space-y-3">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground"
+          onClick={handleLogout}
+        >
+          <LogOut className="h-4 w-4" />
+          <span>Log out</span>
+        </Button>
+        <p className="text-xs text-sidebar-foreground/50">
+          © 2024 BizManager
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function Sidebar() {
+  const isMobile = useIsMobile();
+  const [open, setOpen] = useState(false);
+
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground"
-            onClick={handleLogout}
+            size="icon"
+            className="fixed top-4 left-4 z-50 bg-background shadow-md"
           >
-            <LogOut className="h-4 w-4" />
-            <span>Log out</span>
+            <Menu className="h-5 w-5" />
           </Button>
-          <p className="text-xs text-sidebar-foreground/50">
-            © 2024 BizManager
-          </p>
-        </div>
-      </div>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-64 p-0 bg-sidebar">
+          <SidebarContent onNavigate={() => setOpen(false)} />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-sidebar">
+      <SidebarContent />
     </aside>
   );
 }
