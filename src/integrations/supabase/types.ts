@@ -83,6 +83,44 @@ export type Database = {
         }
         Relationships: []
       }
+      debtor_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          debtor_id: string
+          id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          debtor_id: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          debtor_id?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debtor_payments_debtor_id_fkey"
+            columns: ["debtor_id"]
+            isOneToOne: false
+            referencedRelation: "debtors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       debtors: {
         Row: {
           amount_owed: number
@@ -261,6 +299,41 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminder_logs: {
+        Row: {
+          debtor_id: string
+          id: string
+          message: string | null
+          reminder_type: string
+          sent_at: string
+          status: string
+        }
+        Insert: {
+          debtor_id: string
+          id?: string
+          message?: string | null
+          reminder_type: string
+          sent_at?: string
+          status?: string
+        }
+        Update: {
+          debtor_id?: string
+          id?: string
+          message?: string | null
+          reminder_type?: string
+          sent_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_logs_debtor_id_fkey"
+            columns: ["debtor_id"]
+            isOneToOne: false
+            referencedRelation: "debtors"
             referencedColumns: ["id"]
           },
         ]
