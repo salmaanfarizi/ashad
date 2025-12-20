@@ -28,6 +28,7 @@ interface Product {
 interface Customer {
   id: string;
   name: string;
+  source: "customer" | "debtor";
 }
 
 export default function Sales() {
@@ -53,15 +54,39 @@ export default function Sales() {
 
   async function fetchData() {
     try {
-      const [salesRes, productsRes, customersRes] = await Promise.all([
+      const [salesRes, productsRes, customersRes, debtorsRes] = await Promise.all([
         supabase.from("sales").select("*").order("created_at", { ascending: false }),
         supabase.from("products").select("id, name, selling_price"),
         supabase.from("customers").select("id, name"),
+        supabase.from("debtors").select("id, name"),
       ]);
 
       if (salesRes.data) setSales(salesRes.data);
       if (productsRes.data) setProducts(productsRes.data);
-      if (customersRes.data) setCustomers(customersRes.data);
+      
+      // Combine customers and debtors, removing duplicates by name
+      const allCustomers: Customer[] = [];
+      const seenNames = new Set<string>();
+      
+      if (customersRes.data) {
+        customersRes.data.forEach((c) => {
+          if (!seenNames.has(c.name.toLowerCase())) {
+            seenNames.add(c.name.toLowerCase());
+            allCustomers.push({ ...c, source: "customer" });
+          }
+        });
+      }
+      
+      if (debtorsRes.data) {
+        debtorsRes.data.forEach((d) => {
+          if (!seenNames.has(d.name.toLowerCase())) {
+            seenNames.add(d.name.toLowerCase());
+            allCustomers.push({ ...d, source: "debtor" });
+          }
+        });
+      }
+      
+      setCustomers(allCustomers);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
