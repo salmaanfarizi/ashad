@@ -44,6 +44,7 @@ export default function Sales() {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProductName, setNewProductName] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
+  const [printAfterSale, setPrintAfterSale] = useState(true);
   const [formData, setFormData] = useState({
     product_id: "",
     customer_id: "",
@@ -175,6 +176,28 @@ export default function Sales() {
       toast.success("Credit sale recorded - Inventory updated & added to debtors");
     } else {
       toast.success("Sale recorded - Inventory updated");
+    }
+
+    // Generate invoice if option is enabled
+    if (printAfterSale && saleData) {
+      const product = products.find((p) => p.id === formData.product_id);
+      const invoiceNumber = `INV-${saleData.id.slice(0, 8).toUpperCase()}`;
+      
+      generateInvoicePDF({
+        invoiceNumber,
+        date: new Date(formData.sale_date).toLocaleDateString(),
+        customerName: customerName || "Walk-in Customer",
+        items: [
+          {
+            description: product?.name || formData.notes || "Product/Service",
+            quantity,
+            unitPrice,
+            total: totalAmount,
+          },
+        ],
+        subtotal: totalAmount,
+        total: totalAmount,
+      });
     }
 
     setShowModal(false);
@@ -589,6 +612,18 @@ export default function Sales() {
                   rows={2}
                   placeholder="Optional notes"
                 />
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="printAfterSale"
+                  checked={printAfterSale}
+                  onChange={(e) => setPrintAfterSale(e.target.checked)}
+                  className="w-4 h-4 text-primary rounded"
+                />
+                <label htmlFor="printAfterSale" className="text-sm cursor-pointer">
+                  Print invoice after sale
+                </label>
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">
