@@ -40,6 +40,9 @@ export default function Sales() {
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
+  const [newProductPrice, setNewProductPrice] = useState("");
   const [formData, setFormData] = useState({
     product_id: "",
     customer_id: "",
@@ -197,6 +200,35 @@ export default function Sales() {
     setFormData({ ...formData, customer_id: data.id, customer_name: data.name });
   }
 
+  async function handleQuickAddProduct() {
+    if (!newProductName.trim()) {
+      toast.error("Product name is required");
+      return;
+    }
+
+    const sellingPrice = parseFloat(newProductPrice) || 0;
+
+    const { data, error } = await supabase.from("products").insert({
+      name: newProductName.trim(),
+      selling_price: sellingPrice,
+      quantity: 0,
+    }).select().single();
+
+    if (error) {
+      toast.error("Failed to add product");
+      return;
+    }
+
+    toast.success("Product added!");
+    setShowAddProduct(false);
+    setNewProductName("");
+    setNewProductPrice("");
+    
+    // Add to products list and select
+    setProducts([...products, { id: data.id, name: data.name, selling_price: data.selling_price }]);
+    setFormData({ ...formData, product_id: data.id, unit_price: sellingPrice.toString() });
+  }
+
   async function handleDelete(id: string) {
     const { error } = await supabase.from("sales").delete().eq("id", id);
     if (error) {
@@ -330,19 +362,70 @@ export default function Sales() {
             <h2 className="text-xl font-semibold mb-4">Record Sale</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Product (Optional)</label>
-                <select
-                  value={formData.product_id}
-                  onChange={(e) => handleProductChange(e.target.value)}
-                  className="input-field"
-                >
-                  <option value="">Select product</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} - {formatCurrency(p.selling_price || 0)}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium">Product (Optional)</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddProduct(!showAddProduct)}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add New
+                  </button>
+                </div>
+                
+                {showAddProduct ? (
+                  <div className="p-3 bg-muted rounded-lg space-y-2 mb-2">
+                    <input
+                      type="text"
+                      value={newProductName}
+                      onChange={(e) => setNewProductName(e.target.value)}
+                      className="input-field text-sm"
+                      placeholder="Product name *"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newProductPrice}
+                      onChange={(e) => setNewProductPrice(e.target.value)}
+                      className="input-field text-sm"
+                      placeholder="Selling price"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddProduct(false);
+                          setNewProductName("");
+                          setNewProductPrice("");
+                        }}
+                        className="btn-secondary text-xs py-1 px-2 flex-1"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleQuickAddProduct}
+                        className="btn-primary text-xs py-1 px-2 flex-1"
+                      >
+                        Add Product
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <select
+                    value={formData.product_id}
+                    onChange={(e) => handleProductChange(e.target.value)}
+                    className="input-field"
+                  >
+                    <option value="">Select product</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} - {formatCurrency(p.selling_price || 0)}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
