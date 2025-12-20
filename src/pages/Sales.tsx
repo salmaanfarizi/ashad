@@ -23,6 +23,7 @@ interface Product {
   id: string;
   name: string;
   selling_price: number | null;
+  quantity: number;
 }
 
 interface Customer {
@@ -62,7 +63,7 @@ export default function Sales() {
     try {
       const [salesRes, productsRes, customersRes, debtorsRes] = await Promise.all([
         supabase.from("sales").select("*").order("created_at", { ascending: false }),
-        supabase.from("products").select("id, name, selling_price"),
+        supabase.from("products").select("id, name, selling_price, quantity"),
         supabase.from("customers").select("id, name"),
         supabase.from("debtors").select("id, name"),
       ]);
@@ -130,6 +131,22 @@ export default function Sales() {
       return;
     }
 
+    // Update inventory (reduce stock) if product was selected
+    if (formData.product_id) {
+      const product = products.find(p => p.id === formData.product_id);
+      if (product) {
+        const newQuantity = Math.max(0, product.quantity - quantity);
+        const { error: inventoryError } = await supabase
+          .from("products")
+          .update({ quantity: newQuantity })
+          .eq("id", formData.product_id);
+        
+        if (inventoryError) {
+          console.error("Failed to update inventory:", inventoryError);
+        }
+      }
+    }
+
     // If credit sale, create debtor entry
     if (formData.payment_status === "credit" && customerName) {
       // Check if debtor already exists
@@ -155,9 +172,9 @@ export default function Sales() {
           notes: `Credit sale - ${formData.notes || "No notes"}`,
         });
       }
-      toast.success("Credit sale recorded - Added to debtors");
+      toast.success("Credit sale recorded - Inventory updated & added to debtors");
     } else {
-      toast.success("Sale recorded successfully");
+      toast.success("Sale recorded - Inventory updated");
     }
 
     setShowModal(false);
@@ -225,7 +242,7 @@ export default function Sales() {
     setNewProductPrice("");
     
     // Add to products list and select
-    setProducts([...products, { id: data.id, name: data.name, selling_price: data.selling_price }]);
+    setProducts([...products, { id: data.id, name: data.name, selling_price: data.selling_price, quantity: 0 }]);
     setFormData({ ...formData, product_id: data.id, unit_price: sellingPrice.toString() });
   }
 
