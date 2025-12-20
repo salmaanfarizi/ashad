@@ -44,7 +44,6 @@ export default function Sales() {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProductName, setNewProductName] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
-  const [printAfterSale, setPrintAfterSale] = useState(true);
   const [formData, setFormData] = useState({
     product_id: "",
     customer_id: "",
@@ -60,6 +59,15 @@ export default function Sales() {
     fetchData();
   }, []);
 
+  const parseCustomerKey = (key: string): { source: Customer["source"]; id: string } | null => {
+    if (!key) return null;
+    const [source, id] = key.split(":");
+    if ((source === "customer" || source === "debtor") && id) {
+      return { source: source as Customer["source"], id };
+    }
+    return null;
+  };
+
   async function fetchData() {
     try {
       const [salesRes, productsRes, customersRes, debtorsRes] = await Promise.all([
@@ -71,11 +79,11 @@ export default function Sales() {
 
       if (salesRes.data) setSales(salesRes.data);
       if (productsRes.data) setProducts(productsRes.data);
-      
+
       // Combine customers and debtors, removing duplicates by name
       const allCustomers: Customer[] = [];
       const seenNames = new Set<string>();
-      
+
       if (customersRes.data) {
         customersRes.data.forEach((c) => {
           if (!seenNames.has(c.name.toLowerCase())) {
@@ -84,7 +92,7 @@ export default function Sales() {
           }
         });
       }
-      
+
       if (debtorsRes.data) {
         debtorsRes.data.forEach((d) => {
           if (!seenNames.has(d.name.toLowerCase())) {
@@ -93,7 +101,7 @@ export default function Sales() {
           }
         });
       }
-      
+
       setCustomers(allCustomers);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -102,46 +110,60 @@ export default function Sales() {
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
+    const shouldPrintInvoice = submitter?.getAttribute("data-intent") === "print";
+
     const quantity = parseInt(formData.quantity);
     const unitPrice = parseFloat(formData.unit_price);
     const totalAmount = quantity * unitPrice;
 
-    // Get customer name
-    let customerName = formData.customer_name;
-    if (formData.customer_id) {
-      const customer = customers.find((c) => c.id === formData.customer_id);
-      if (customer) customerName = customer.name;
-    }
+    const parsedCustomer = parseCustomerKey(formData.customer_id);
+    const selectedCustomer = parsedCustomer
+      ? customers.find((c) => c.source === parsedCustomer.source && c.id === parsedCustomer.id)
+      : undefined;
 
-    const { data: saleData, error } = await supabase.from("sales").insert({
-      product_id: formData.product_id || null,
-      customer_id: formData.customer_id || null,
-      customer_name: customerName || null,
-      quantity,
-      unit_price: unitPrice,
-      total_amount: totalAmount,
-      sale_date: formData.sale_date,
-      notes: formData.notes || null,
-      payment_status: formData.payment_status,
-    }).select().single();
+    const customerName = selectedCustomer?.name || formData.customer_name;
+    const customerIdForSale = selectedCustomer?.source === "customer" ? selectedCustomer.id : null;
+
+    const { data: saleData, error } = await supabase
+      .from("sales")
+      .insert({
+        product_id: formData.product_id || null,
+        customer_id: customerIdForSale,
+        customer_name: customerName || null,
+        quantity,
+        unit_price: unitPrice,
+        total_amount: totalAmount,
+        sale_date: formData.sale_date,
+        notes: formData.notes || null,
+        payment_status: formData.payment_status,
+      })
+      .select()
+      .single();
 
     if (error) {
-      toast.error("Failed to add sale");
+      const errCode = (error as any)?.code;
+      toast.error(
+        errCode === "23503"
+          ? "Customer selection is invalid. Please select a customer or type a name manually."
+          : "Failed to record sale"
+      );
       return;
     }
 
     // Update inventory (reduce stock) if product was selected
     if (formData.product_id) {
-      const product = products.find(p => p.id === formData.product_id);
+      const product = products.find((p) => p.id === formData.product_id);
       if (product) {
         const newQuantity = Math.max(0, product.quantity - quantity);
         const { error: inventoryError } = await supabase
           .from("products")
           .update({ quantity: newQuantity })
           .eq("id", formData.product_id);
-        
+
         if (inventoryError) {
           console.error("Failed to update inventory:", inventoryError);
         }
@@ -168,8 +190,7 @@ export default function Sales() {
         await supabase.from("debtors").insert({
           name: customerName,
           amount_owed: totalAmount,
-          phone: formData.customer_id ? 
-            customers.find(c => c.id === formData.customer_id)?.name : null,
+          phone: null,
           notes: `Credit sale - ${formData.notes || "No notes"}`,
         });
       }
@@ -178,11 +199,11 @@ export default function Sales() {
       toast.success("Sale recorded - Inventory updated");
     }
 
-    // Generate invoice if option is enabled
-    if (printAfterSale && saleData) {
+    // Generate invoice if user clicked the print button
+    if (shouldPrintInvoice && saleData) {
       const product = products.find((p) => p.id === formData.product_id);
       const invoiceNumber = `INV-${saleData.id.slice(0, 8).toUpperCase()}`;
-      
+
       generateInvoicePDF({
         invoiceNumber,
         date: new Date(formData.sale_date).toLocaleDateString(),
@@ -220,10 +241,14 @@ export default function Sales() {
       return;
     }
 
-    const { data, error } = await supabase.from("customers").insert({
-      name: newCustomerName.trim(),
-      phone: newCustomerPhone.trim() || null,
-    }).select().single();
+    const { data, error } = await supabase
+      .from("customers")
+      .insert({
+        name: newCustomerName.trim(),
+        phone: newCustomerPhone.trim() || null,
+      })
+      .select()
+      .single();
 
     if (error) {
       toast.error("Failed to add customer");
@@ -234,10 +259,10 @@ export default function Sales() {
     setShowAddCustomer(false);
     setNewCustomerName("");
     setNewCustomerPhone("");
-    
+
     // Add to customers list and select
     setCustomers([...customers, { id: data.id, name: data.name, source: "customer" }]);
-    setFormData({ ...formData, customer_id: data.id, customer_name: data.name });
+    setFormData({ ...formData, customer_id: `customer:${data.id}`, customer_name: data.name });
   }
 
   async function handleQuickAddProduct() {
@@ -248,11 +273,15 @@ export default function Sales() {
 
     const sellingPrice = parseFloat(newProductPrice) || 0;
 
-    const { data, error } = await supabase.from("products").insert({
-      name: newProductName.trim(),
-      selling_price: sellingPrice,
-      quantity: 0,
-    }).select().single();
+    const { data, error } = await supabase
+      .from("products")
+      .insert({
+        name: newProductName.trim(),
+        selling_price: sellingPrice,
+        quantity: 0,
+      })
+      .select()
+      .single();
 
     if (error) {
       toast.error("Failed to add product");
@@ -263,9 +292,12 @@ export default function Sales() {
     setShowAddProduct(false);
     setNewProductName("");
     setNewProductPrice("");
-    
+
     // Add to products list and select
-    setProducts([...products, { id: data.id, name: data.name, selling_price: data.selling_price, quantity: 0 }]);
+    setProducts([
+      ...products,
+      { id: data.id, name: data.name, selling_price: data.selling_price, quantity: 0 },
+    ]);
     setFormData({ ...formData, product_id: data.id, unit_price: sellingPrice.toString() });
   }
 
@@ -288,11 +320,15 @@ export default function Sales() {
     });
   };
 
-  const handleCustomerChange = (customerId: string) => {
-    const customer = customers.find((c) => c.id === customerId);
+  const handleCustomerChange = (customerKey: string) => {
+    const parsed = parseCustomerKey(customerKey);
+    const customer = parsed
+      ? customers.find((c) => c.source === parsed.source && c.id === parsed.id)
+      : undefined;
+
     setFormData({
       ...formData,
-      customer_id: customerId,
+      customer_id: customerKey,
       customer_name: customer?.name || "",
     });
   };
@@ -525,8 +561,8 @@ export default function Sales() {
                   >
                     <option value="">Select existing customer</option>
                     {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
+                      <option key={`${c.source}:${c.id}`} value={`${c.source}:${c.id}`}>
+                        {c.name}{c.source === "debtor" ? " (Debtor)" : ""}
                       </option>
                     ))}
                   </select>
@@ -613,24 +649,15 @@ export default function Sales() {
                   placeholder="Optional notes"
                 />
               </div>
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="printAfterSale"
-                  checked={printAfterSale}
-                  onChange={(e) => setPrintAfterSale(e.target.checked)}
-                  className="w-4 h-4 text-primary rounded"
-                />
-                <label htmlFor="printAfterSale" className="text-sm cursor-pointer">
-                  Print invoice after sale
-                </label>
-              </div>
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">
                   Cancel
                 </button>
-                <button type="submit" className="btn-success flex-1">
+                <button type="submit" data-intent="save" className="btn-success flex-1">
                   Record Sale
+                </button>
+                <button type="submit" data-intent="print" className="btn-primary flex-1">
+                  Record & Print
                 </button>
               </div>
             </form>
