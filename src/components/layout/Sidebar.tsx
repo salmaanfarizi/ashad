@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useState } from "react";
+import mobtechLogo from "@/assets/mobtech-logo.png";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -48,13 +49,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-          <Package className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <span className="text-lg font-semibold text-sidebar-foreground">
-          BizManager
-        </span>
+      <div className="flex h-16 items-center justify-center border-b border-sidebar-border px-4">
+        <img src={mobtechLogo} alt="MobTech" className="h-10 w-auto object-contain" />
       </div>
 
       {/* Navigation */}
@@ -89,7 +85,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <span>Log out</span>
         </Button>
         <p className="text-xs text-sidebar-foreground/50">
-          © 2024 BizManager
+          © 2024 MobTech
         </p>
       </div>
     </div>
