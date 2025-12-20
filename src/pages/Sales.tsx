@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, FileText } from "lucide-react";
+import { Plus, Trash2, FileText, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { generateInvoicePDF } from "@/lib/pdfUtils";
 import { formatCurrency } from "@/lib/currency";
@@ -37,6 +37,9 @@ export default function Sales() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [formData, setFormData] = useState({
     product_id: "",
     customer_id: "",
@@ -166,6 +169,32 @@ export default function Sales() {
       payment_status: "paid",
     });
     fetchData();
+  }
+
+  async function handleQuickAddCustomer() {
+    if (!newCustomerName.trim()) {
+      toast.error("Customer name is required");
+      return;
+    }
+
+    const { data, error } = await supabase.from("customers").insert({
+      name: newCustomerName.trim(),
+      phone: newCustomerPhone.trim() || null,
+    }).select().single();
+
+    if (error) {
+      toast.error("Failed to add customer");
+      return;
+    }
+
+    toast.success("Customer added!");
+    setShowAddCustomer(false);
+    setNewCustomerName("");
+    setNewCustomerPhone("");
+    
+    // Add to customers list and select
+    setCustomers([...customers, { id: data.id, name: data.name, source: "customer" }]);
+    setFormData({ ...formData, customer_id: data.id, customer_name: data.name });
   }
 
   async function handleDelete(id: string) {
@@ -316,19 +345,69 @@ export default function Sales() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Customer</label>
-                <select
-                  value={formData.customer_id}
-                  onChange={(e) => handleCustomerChange(e.target.value)}
-                  className="input-field"
-                >
-                  <option value="">Select existing customer</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium">Customer</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCustomer(!showAddCustomer)}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <UserPlus className="h-3 w-3" />
+                    Add New
+                  </button>
+                </div>
+                
+                {showAddCustomer ? (
+                  <div className="p-3 bg-muted rounded-lg space-y-2 mb-2">
+                    <input
+                      type="text"
+                      value={newCustomerName}
+                      onChange={(e) => setNewCustomerName(e.target.value)}
+                      className="input-field text-sm"
+                      placeholder="Customer name *"
+                    />
+                    <input
+                      type="tel"
+                      value={newCustomerPhone}
+                      onChange={(e) => setNewCustomerPhone(e.target.value)}
+                      className="input-field text-sm"
+                      placeholder="Phone (optional)"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddCustomer(false);
+                          setNewCustomerName("");
+                          setNewCustomerPhone("");
+                        }}
+                        className="btn-secondary text-xs py-1 px-2 flex-1"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleQuickAddCustomer}
+                        className="btn-primary text-xs py-1 px-2 flex-1"
+                      >
+                        Add Customer
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <select
+                    value={formData.customer_id}
+                    onChange={(e) => handleCustomerChange(e.target.value)}
+                    className="input-field"
+                  >
+                    <option value="">Select existing customer</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Or enter name manually</label>
