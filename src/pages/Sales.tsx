@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { generateInvoicePDF } from "@/lib/pdfUtils";
+import { formatCurrency } from "@/lib/currency";
 
 interface Sale {
   id: string;
@@ -14,26 +15,36 @@ interface Sale {
   sale_date: string;
   notes: string | null;
   product_id: string | null;
+  payment_status: string;
+  customer_id: string | null;
 }
 
 interface Product {
   id: string;
   name: string;
-  selling_price: number;
+  selling_price: number | null;
+}
+
+interface Customer {
+  id: string;
+  name: string;
 }
 
 export default function Sales() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     product_id: "",
+    customer_id: "",
     customer_name: "",
     quantity: "",
     unit_price: "",
     sale_date: new Date().toISOString().split("T")[0],
     notes: "",
+    payment_status: "paid" as "paid" | "credit",
   });
 
   useEffect(() => {
@@ -42,13 +53,15 @@ export default function Sales() {
 
   async function fetchData() {
     try {
-      const [salesRes, productsRes] = await Promise.all([
+      const [salesRes, productsRes, customersRes] = await Promise.all([
         supabase.from("sales").select("*").order("created_at", { ascending: false }),
         supabase.from("products").select("id, name, selling_price"),
+        supabase.from("customers").select("id, name"),
       ]);
 
       if (salesRes.data) setSales(salesRes.data);
       if (productsRes.data) setProducts(productsRes.data);
+      if (customersRes.data) setCustomers(customersRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -62,30 +75,70 @@ export default function Sales() {
     const unitPrice = parseFloat(formData.unit_price);
     const totalAmount = quantity * unitPrice;
 
-    const { error } = await supabase.from("sales").insert({
+    // Get customer name
+    let customerName = formData.customer_name;
+    if (formData.customer_id) {
+      const customer = customers.find((c) => c.id === formData.customer_id);
+      if (customer) customerName = customer.name;
+    }
+
+    const { data: saleData, error } = await supabase.from("sales").insert({
       product_id: formData.product_id || null,
-      customer_name: formData.customer_name || null,
+      customer_id: formData.customer_id || null,
+      customer_name: customerName || null,
       quantity,
       unit_price: unitPrice,
       total_amount: totalAmount,
       sale_date: formData.sale_date,
       notes: formData.notes || null,
-    });
+      payment_status: formData.payment_status,
+    }).select().single();
 
     if (error) {
       toast.error("Failed to add sale");
       return;
     }
 
-    toast.success("Sale recorded successfully");
+    // If credit sale, create debtor entry
+    if (formData.payment_status === "credit" && customerName) {
+      // Check if debtor already exists
+      const { data: existingDebtor } = await supabase
+        .from("debtors")
+        .select("*")
+        .eq("name", customerName)
+        .maybeSingle();
+
+      if (existingDebtor) {
+        // Update existing debtor's amount
+        await supabase
+          .from("debtors")
+          .update({ amount_owed: existingDebtor.amount_owed + totalAmount })
+          .eq("id", existingDebtor.id);
+      } else {
+        // Create new debtor
+        await supabase.from("debtors").insert({
+          name: customerName,
+          amount_owed: totalAmount,
+          phone: formData.customer_id ? 
+            customers.find(c => c.id === formData.customer_id)?.name : null,
+          notes: `Credit sale - ${formData.notes || "No notes"}`,
+        });
+      }
+      toast.success("Credit sale recorded - Added to debtors");
+    } else {
+      toast.success("Sale recorded successfully");
+    }
+
     setShowModal(false);
     setFormData({
       product_id: "",
+      customer_id: "",
       customer_name: "",
       quantity: "",
       unit_price: "",
       sale_date: new Date().toISOString().split("T")[0],
       notes: "",
+      payment_status: "paid",
     });
     fetchData();
   }
@@ -105,15 +158,17 @@ export default function Sales() {
     setFormData({
       ...formData,
       product_id: productId,
-      unit_price: product ? product.selling_price.toString() : "",
+      unit_price: product?.selling_price ? product.selling_price.toString() : "",
     });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-SA", {
-      style: "currency",
-      currency: "SAR",
-    }).format(amount);
+  const handleCustomerChange = (customerId: string) => {
+    const customer = customers.find((c) => c.id === customerId);
+    setFormData({
+      ...formData,
+      customer_id: customerId,
+      customer_name: customer?.name || "",
+    });
   };
 
   const handleGenerateInvoice = (sale: Sale) => {
@@ -161,6 +216,7 @@ export default function Sales() {
               <th>Quantity</th>
               <th>Unit Price</th>
               <th>Total</th>
+              <th>Status</th>
               <th>Notes</th>
               <th className="text-right">Actions</th>
             </tr>
@@ -168,7 +224,7 @@ export default function Sales() {
           <tbody>
             {sales.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                <td colSpan={8} className="text-center py-8 text-muted-foreground">
                   No sales recorded yet
                 </td>
               </tr>
@@ -180,6 +236,11 @@ export default function Sales() {
                   <td>{sale.quantity}</td>
                   <td>{formatCurrency(sale.unit_price)}</td>
                   <td className="font-medium text-success">{formatCurrency(sale.total_amount)}</td>
+                  <td>
+                    <span className={`badge-${sale.payment_status === 'paid' ? 'success' : 'warning'}`}>
+                      {sale.payment_status === 'paid' ? 'Paid' : 'Credit'}
+                    </span>
+                  </td>
                   <td className="text-muted-foreground max-w-xs truncate">
                     {sale.notes || "-"}
                   </td>
@@ -211,7 +272,7 @@ export default function Sales() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">Record Sale</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -224,17 +285,32 @@ export default function Sales() {
                   <option value="">Select product</option>
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} - {formatCurrency(p.selling_price)}
+                      {p.name} - {formatCurrency(p.selling_price || 0)}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Customer Name</label>
+                <label className="block text-sm font-medium mb-1">Customer</label>
+                <select
+                  value={formData.customer_id}
+                  onChange={(e) => handleCustomerChange(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="">Select existing customer</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Or enter name manually</label>
                 <input
                   type="text"
                   value={formData.customer_name}
-                  onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, customer_name: e.target.value, customer_id: "" })}
                   className="input-field"
                   placeholder="Enter customer name"
                 />
@@ -262,6 +338,33 @@ export default function Sales() {
                     required
                     min="0"
                   />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Payment Status *</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="payment_status"
+                      value="paid"
+                      checked={formData.payment_status === "paid"}
+                      onChange={() => setFormData({ ...formData, payment_status: "paid" })}
+                      className="w-4 h-4 text-primary"
+                    />
+                    <span className="text-sm">Paid</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="payment_status"
+                      value="credit"
+                      checked={formData.payment_status === "credit"}
+                      onChange={() => setFormData({ ...formData, payment_status: "credit" })}
+                      className="w-4 h-4 text-primary"
+                    />
+                    <span className="text-sm">Credit (Add to Debtors)</span>
+                  </label>
                 </div>
               </div>
               <div>

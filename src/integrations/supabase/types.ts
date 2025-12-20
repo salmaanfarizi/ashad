@@ -121,6 +121,39 @@ export type Database = {
         }
         Relationships: []
       }
+      customers: {
+        Row: {
+          address: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       debtor_payments: {
         Row: {
           amount: number
@@ -379,9 +412,11 @@ export type Database = {
       sales: {
         Row: {
           created_at: string
+          customer_id: string | null
           customer_name: string | null
           id: string
           notes: string | null
+          payment_status: string
           product_id: string | null
           quantity: number
           sale_date: string
@@ -390,9 +425,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          customer_id?: string | null
           customer_name?: string | null
           id?: string
           notes?: string | null
+          payment_status?: string
           product_id?: string | null
           quantity: number
           sale_date?: string
@@ -401,9 +438,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          customer_id?: string | null
           customer_name?: string | null
           id?: string
           notes?: string | null
+          payment_status?: string
           product_id?: string | null
           quantity?: number
           sale_date?: string
@@ -411,6 +450,13 @@ export type Database = {
           unit_price?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_product_id_fkey"
             columns: ["product_id"]

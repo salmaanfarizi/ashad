@@ -12,6 +12,7 @@ import {
   Camera,
   LogOut,
   Menu,
+  UserCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ const navigation = [
   { name: "Sales", href: "/sales", icon: TrendingUp },
   { name: "Expenses", href: "/expenses", icon: Receipt },
   { name: "Inventory", href: "/inventory", icon: Package },
+  { name: "Customers", href: "/customers", icon: UserCircle },
   { name: "Debtors", href: "/debtors", icon: Users },
   { name: "Creditors", href: "/creditors", icon: CreditCard },
   { name: "Cash", href: "/cash", icon: Wallet },
