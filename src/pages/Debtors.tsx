@@ -153,6 +153,19 @@ export default function Debtors() {
       return;
     }
 
+    // Add cash transaction (cash in) for the payment
+    const { error: cashError } = await supabase.from("cash_transactions").insert({
+      type: "in",
+      amount: paymentAmount,
+      description: `Payment from debtor: ${selectedDebtor.name}`,
+      reference_type: "Debtor Payment",
+      transaction_date: paymentData.payment_date,
+    });
+
+    if (cashError) {
+      console.error("Failed to add cash transaction:", cashError);
+    }
+
     toast.success(`Payment of ${formatCurrency(paymentAmount)} recorded`);
     closePaymentModal();
     fetchDebtors();

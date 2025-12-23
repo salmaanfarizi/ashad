@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, FileText, UserPlus, Calendar, User, CreditCard } from "lucide-react";
+import { Plus, Trash2, FileText, UserPlus, Calendar, User, CreditCard, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { generateInvoicePDF, generateDailySalesReportPDF } from "@/lib/pdfUtils";
 import { formatCurrency } from "@/lib/currency";
@@ -45,6 +45,15 @@ export default function Sales() {
   const [newProductName, setNewProductName] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
   const [reportDate, setReportDate] = useState(new Date().toISOString().split("T")[0]);
+  
+  // Sales return modal state
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [selectedSaleForReturn, setSelectedSaleForReturn] = useState<Sale | null>(null);
+  const [returnData, setReturnData] = useState({
+    quantity: "",
+    reason: "",
+    refund_method: "cash" as "cash" | "credit",
+  });
   
   // Invoice preview modal state
   const [invoicePreview, setInvoicePreview] = useState<{
@@ -402,6 +411,102 @@ export default function Sales() {
     toast.success("Daily sales report generated!");
   };
 
+  // Sales Return Functions
+  const openReturnModal = (sale: Sale) => {
+    setSelectedSaleForReturn(sale);
+    setReturnData({
+      quantity: sale.quantity.toString(),
+      reason: "",
+      refund_method: sale.payment_status === "credit" ? "credit" : "cash",
+    });
+    setShowReturnModal(true);
+  };
+
+  const closeReturnModal = () => {
+    setShowReturnModal(false);
+    setSelectedSaleForReturn(null);
+    setReturnData({
+      quantity: "",
+      reason: "",
+      refund_method: "cash",
+    });
+  };
+
+  async function handleSalesReturn(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!selectedSaleForReturn) return;
+
+    const returnQuantity = parseInt(returnData.quantity);
+    if (returnQuantity <= 0 || returnQuantity > selectedSaleForReturn.quantity) {
+      toast.error("Invalid return quantity");
+      return;
+    }
+
+    const refundAmount = returnQuantity * selectedSaleForReturn.unit_price;
+
+    // Update inventory (add back to stock) if product was part of sale
+    if (selectedSaleForReturn.product_id) {
+      const product = products.find((p) => p.id === selectedSaleForReturn.product_id);
+      if (product) {
+        const newQuantity = product.quantity + returnQuantity;
+        await supabase
+          .from("products")
+          .update({ quantity: newQuantity })
+          .eq("id", selectedSaleForReturn.product_id);
+      }
+    }
+
+    // Handle refund based on method
+    if (returnData.refund_method === "cash") {
+      // Add cash out transaction for refund
+      await supabase.from("cash_transactions").insert({
+        type: "out",
+        amount: refundAmount,
+        description: `Sales return refund - ${selectedSaleForReturn.customer_name || "Walk-in Customer"}`,
+        reference_type: "Sales Return",
+        transaction_date: new Date().toISOString().split("T")[0],
+      });
+    } else {
+      // If credit refund and customer was a debtor, reduce their debt
+      if (selectedSaleForReturn.customer_name) {
+        const { data: existingDebtor } = await supabase
+          .from("debtors")
+          .select("*")
+          .eq("name", selectedSaleForReturn.customer_name)
+          .maybeSingle();
+
+        if (existingDebtor) {
+          const newAmountOwed = Math.max(0, existingDebtor.amount_owed - refundAmount);
+          await supabase
+            .from("debtors")
+            .update({ amount_owed: newAmountOwed })
+            .eq("id", existingDebtor.id);
+        }
+      }
+    }
+
+    // If returning full quantity, delete the sale; otherwise update it
+    if (returnQuantity === selectedSaleForReturn.quantity) {
+      await supabase.from("sales").delete().eq("id", selectedSaleForReturn.id);
+    } else {
+      const newQuantity = selectedSaleForReturn.quantity - returnQuantity;
+      const newTotal = newQuantity * selectedSaleForReturn.unit_price;
+      await supabase
+        .from("sales")
+        .update({
+          quantity: newQuantity,
+          total_amount: newTotal,
+          notes: `${selectedSaleForReturn.notes || ""} [Return: ${returnQuantity} units - ${returnData.reason}]`.trim(),
+        })
+        .eq("id", selectedSaleForReturn.id);
+    }
+
+    toast.success(`Return processed: ${returnQuantity} units, ${formatCurrency(refundAmount)} refunded`);
+    closeReturnModal();
+    fetchData();
+  }
+
   const getSelectedCustomerType = (): { type: "customer" | "debtor" | null; name: string } => {
     const parsed = parseCustomerKey(formData.customer_id);
     if (!parsed) return { type: null, name: formData.customer_name };
@@ -481,6 +586,13 @@ export default function Sales() {
                   </td>
                   <td className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => openReturnModal(sale)}
+                        className="p-2 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-lg transition-colors"
+                        title="Process Return"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </button>
                       <button
                         onClick={() => handleGenerateInvoice(sale)}
                         className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
@@ -782,6 +894,89 @@ export default function Sales() {
           total={invoicePreview.total}
           onPrint={handlePrintInvoice}
         />
+      )}
+
+      {/* Sales Return Modal */}
+      {showReturnModal && selectedSaleForReturn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+            <h2 className="text-xl font-semibold mb-4">Process Sales Return</h2>
+            <div className="bg-muted/50 rounded-lg p-3 mb-4">
+              <p className="text-sm text-muted-foreground">Returning items from sale:</p>
+              <p className="font-semibold">{selectedSaleForReturn.customer_name || "Walk-in Customer"}</p>
+              <p className="text-sm text-primary">
+                Original: {selectedSaleForReturn.quantity} units @ {formatCurrency(selectedSaleForReturn.unit_price)} = {formatCurrency(selectedSaleForReturn.total_amount)}
+              </p>
+            </div>
+            <form onSubmit={handleSalesReturn} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Quantity to Return *</label>
+                <input
+                  type="number"
+                  value={returnData.quantity}
+                  onChange={(e) => setReturnData({ ...returnData, quantity: e.target.value })}
+                  className="input-field"
+                  required
+                  min="1"
+                  max={selectedSaleForReturn.quantity}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Refund: {formatCurrency(parseInt(returnData.quantity || "0") * selectedSaleForReturn.unit_price)}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Refund Method *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setReturnData({ ...returnData, refund_method: "cash" })}
+                    className={`py-3 rounded-lg font-medium transition-all ${
+                      returnData.refund_method === "cash"
+                        ? "bg-success text-success-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    Cash Refund
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReturnData({ ...returnData, refund_method: "credit" })}
+                    className={`py-3 rounded-lg font-medium transition-all ${
+                      returnData.refund_method === "credit"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    Credit Balance
+                  </button>
+                </div>
+                {returnData.refund_method === "credit" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Will reduce debtor's outstanding balance
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Reason for Return</label>
+                <textarea
+                  value={returnData.reason}
+                  onChange={(e) => setReturnData({ ...returnData, reason: e.target.value })}
+                  className="input-field"
+                  rows={2}
+                  placeholder="Defective, wrong item, customer changed mind..."
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={closeReturnModal} className="btn-secondary flex-1">
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary flex-1">
+                  Process Return
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </MainLayout>
   );
