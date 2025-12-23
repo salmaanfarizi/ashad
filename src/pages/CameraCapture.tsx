@@ -43,7 +43,25 @@ export default function CameraCapture() {
         .select("*")
         .order("captured_at", { ascending: false });
 
-      if (data) setCaptures(data);
+      if (data) {
+        // Generate signed URLs for private bucket
+        const capturesWithSignedUrls = await Promise.all(
+          data.map(async (capture) => {
+            const fileName = capture.image_url.split("/").pop();
+            if (fileName) {
+              const { data: signedUrlData } = await supabase.storage
+                .from("photos")
+                .createSignedUrl(fileName, 3600); // 1 hour expiry
+              return {
+                ...capture,
+                image_url: signedUrlData?.signedUrl || capture.image_url,
+              };
+            }
+            return capture;
+          })
+        );
+        setCaptures(capturesWithSignedUrls);
+      }
     } catch (error) {
       console.error("Error fetching captures:", error);
     } finally {
@@ -141,14 +159,12 @@ export default function CameraCapture() {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("photos")
-        .getPublicUrl(fileName);
+      // Store the file path reference (not public URL since bucket is private)
+      const filePath = `photos/${fileName}`;
 
-      // Save to database
+      // Save to database with file path reference
       const { error: dbError } = await supabase.from("photo_captures").insert({
-        image_url: urlData.publicUrl,
+        image_url: filePath,
         latitude: location?.lat || null,
         longitude: location?.lng || null,
         address: address || null,
