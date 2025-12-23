@@ -461,3 +461,202 @@ export function generatePaymentReceiptPDF(data: PaymentReceiptData): void {
 
   doc.save(`receipt-${data.receiptNumber}.pdf`);
 }
+
+export interface DailySalesReportData {
+  date: string;
+  sales: {
+    productName: string;
+    quantity: number;
+    totalAmount: number;
+    paymentStatus: string;
+  }[];
+}
+
+export function generateDailySalesReportPDF(data: DailySalesReportData): void {
+  const doc = new jsPDF();
+
+  // Header
+  doc.setFillColor(14, 165, 233);
+  doc.rect(0, 0, 210, 45, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(24);
+  doc.setFont("helvetica", "bold");
+  doc.text("Daily Sales Report", 20, 25);
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.date, 20, 35);
+  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 190, 35, { align: "right" });
+
+  // Calculate totals
+  const totalSales = data.sales.reduce((sum, s) => sum + s.totalAmount, 0);
+  const totalQuantity = data.sales.reduce((sum, s) => sum + s.quantity, 0);
+  const paidSales = data.sales.filter((s) => s.paymentStatus === "paid");
+  const creditSales = data.sales.filter((s) => s.paymentStatus === "credit");
+  const totalPaid = paidSales.reduce((sum, s) => sum + s.totalAmount, 0);
+  const totalCredit = creditSales.reduce((sum, s) => sum + s.totalAmount, 0);
+
+  // Summary Section
+  let yPos = 60;
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("Summary", 20, yPos);
+  yPos += 12;
+
+  // Summary boxes
+  const boxWidth = 85;
+  const boxHeight = 25;
+
+  // Total Sales Box
+  doc.setFillColor(34, 197, 94);
+  doc.roundedRect(20, yPos, boxWidth, boxHeight, 2, 2, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.text("Total Sales", 25, yPos + 10);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(`SAR ${totalSales.toFixed(2)}`, 25, yPos + 20);
+
+  // Total Items Box
+  doc.setFillColor(14, 165, 233);
+  doc.roundedRect(110, yPos, boxWidth, boxHeight, 2, 2, "F");
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text("Items Sold", 115, yPos + 10);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(totalQuantity.toString(), 115, yPos + 20);
+
+  yPos += 35;
+
+  // Paid Box
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(20, yPos, boxWidth, boxHeight, 2, 2, "F");
+  doc.setTextColor(34, 197, 94);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text("Paid Sales", 25, yPos + 10);
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text(`SAR ${totalPaid.toFixed(2)} (${paidSales.length})`, 25, yPos + 20);
+
+  // Credit Box
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(110, yPos, boxWidth, boxHeight, 2, 2, "F");
+  doc.setTextColor(234, 179, 8);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text("Credit Sales", 115, yPos + 10);
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text(`SAR ${totalCredit.toFixed(2)} (${creditSales.length})`, 115, yPos + 20);
+
+  yPos += 40;
+
+  // Totals by Product
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("Sales by Product", 20, yPos);
+  yPos += 5;
+
+  // Group by product
+  const productTotals: Record<string, { quantity: number; total: number; paid: number; credit: number }> = {};
+  data.sales.forEach((sale) => {
+    const key = sale.productName || "Other/Service";
+    if (!productTotals[key]) {
+      productTotals[key] = { quantity: 0, total: 0, paid: 0, credit: 0 };
+    }
+    productTotals[key].quantity += sale.quantity;
+    productTotals[key].total += sale.totalAmount;
+    if (sale.paymentStatus === "paid") {
+      productTotals[key].paid += sale.totalAmount;
+    } else {
+      productTotals[key].credit += sale.totalAmount;
+    }
+  });
+
+  const productRows = Object.entries(productTotals).map(([name, data]) => [
+    name,
+    data.quantity.toString(),
+    `SAR ${data.paid.toFixed(2)}`,
+    `SAR ${data.credit.toFixed(2)}`,
+    `SAR ${data.total.toFixed(2)}`,
+  ]);
+
+  if (productRows.length > 0) {
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Product", "Qty", "Paid", "Credit", "Total"]],
+      body: productRows,
+      headStyles: {
+        fillColor: [14, 165, 233],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 10,
+      },
+      bodyStyles: {
+        textColor: [30, 41, 59],
+        fontSize: 9,
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 20, halign: "center" },
+        2: { cellWidth: 35, halign: "right" },
+        3: { cellWidth: 35, halign: "right" },
+        4: { cellWidth: 35, halign: "right" },
+      },
+      margin: { left: 20, right: 20 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 15;
+  }
+
+  // Totals by Payment Status
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("Sales by Payment Status", 20, yPos);
+  yPos += 5;
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Status", "Count", "Total Amount"]],
+    body: [
+      ["Paid", paidSales.length.toString(), `SAR ${totalPaid.toFixed(2)}`],
+      ["Credit", creditSales.length.toString(), `SAR ${totalCredit.toFixed(2)}`],
+    ],
+    headStyles: {
+      fillColor: [14, 165, 233],
+      textColor: [255, 255, 255],
+      fontStyle: "bold",
+      fontSize: 10,
+    },
+    bodyStyles: {
+      textColor: [30, 41, 59],
+      fontSize: 10,
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 40, halign: "center" },
+      2: { cellWidth: 60, halign: "right" },
+    },
+    margin: { left: 20, right: 20 },
+  });
+
+  // Footer
+  doc.setTextColor(148, 163, 184);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text("Generated by MobTech", 105, 285, { align: "center" });
+
+  doc.save(`daily-sales-report-${data.date.replace(/\//g, "-")}.pdf`);
+}

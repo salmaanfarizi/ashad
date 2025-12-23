@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, FileText, UserPlus, X } from "lucide-react";
+import { Plus, Trash2, FileText, UserPlus, Calendar, User, CreditCard } from "lucide-react";
 import { toast } from "sonner";
-import { generateInvoicePDF } from "@/lib/pdfUtils";
+import { generateInvoicePDF, generateDailySalesReportPDF } from "@/lib/pdfUtils";
 import { formatCurrency } from "@/lib/currency";
-
+import { InvoicePreviewModal } from "@/components/sales/InvoicePreviewModal";
 interface Sale {
   id: string;
   customer_name: string | null;
@@ -44,6 +44,19 @@ export default function Sales() {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProductName, setNewProductName] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
+  const [reportDate, setReportDate] = useState(new Date().toISOString().split("T")[0]);
+  
+  // Invoice preview modal state
+  const [invoicePreview, setInvoicePreview] = useState<{
+    isOpen: boolean;
+    invoiceNumber: string;
+    date: string;
+    customerName: string;
+    items: { description: string; quantity: number; unitPrice: number; total: number }[];
+    subtotal: number;
+    total: number;
+  } | null>(null);
+
   const [formData, setFormData] = useState({
     product_id: "",
     customer_id: "",
@@ -337,7 +350,8 @@ export default function Sales() {
     const product = products.find((p) => p.id === sale.product_id);
     const invoiceNumber = `INV-${sale.id.slice(0, 8).toUpperCase()}`;
 
-    generateInvoicePDF({
+    setInvoicePreview({
+      isOpen: true,
       invoiceNumber,
       date: new Date(sale.sale_date).toLocaleDateString(),
       customerName: sale.customer_name || "Walk-in Customer",
@@ -352,9 +366,50 @@ export default function Sales() {
       subtotal: sale.total_amount,
       total: sale.total_amount,
     });
-
-    toast.success("Invoice generated successfully!");
   };
+
+  const handlePrintInvoice = () => {
+    if (invoicePreview) {
+      generateInvoicePDF({
+        invoiceNumber: invoicePreview.invoiceNumber,
+        date: invoicePreview.date,
+        customerName: invoicePreview.customerName,
+        items: invoicePreview.items,
+        subtotal: invoicePreview.subtotal,
+        total: invoicePreview.total,
+      });
+      toast.success("Invoice generated successfully!");
+    }
+  };
+
+  const handleGenerateDailyReport = () => {
+    const salesForDate = sales.filter((s) => s.sale_date === reportDate);
+    
+    if (salesForDate.length === 0) {
+      toast.error("No sales found for the selected date");
+      return;
+    }
+
+    generateDailySalesReportPDF({
+      date: new Date(reportDate).toLocaleDateString(),
+      sales: salesForDate.map((s) => ({
+        productName: products.find((p) => p.id === s.product_id)?.name || s.notes || "Other",
+        quantity: s.quantity,
+        totalAmount: s.total_amount,
+        paymentStatus: s.payment_status,
+      })),
+    });
+    toast.success("Daily sales report generated!");
+  };
+
+  const getSelectedCustomerType = (): { type: "customer" | "debtor" | null; name: string } => {
+    const parsed = parseCustomerKey(formData.customer_id);
+    if (!parsed) return { type: null, name: formData.customer_name };
+    const customer = customers.find((c) => c.source === parsed.source && c.id === parsed.id);
+    return { type: parsed.source, name: customer?.name || "" };
+  };
+
+  const selectedCustomer = getSelectedCustomerType();
 
   return (
     <MainLayout>
@@ -363,10 +418,28 @@ export default function Sales() {
           <h1 className="page-title font-heading">Sales</h1>
           <p className="page-description">Track your sales transactions</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-success flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Record Sale
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Daily Report Section */}
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={reportDate}
+              onChange={(e) => setReportDate(e.target.value)}
+              className="input-field text-sm h-10 w-auto"
+            />
+            <button
+              onClick={handleGenerateDailyReport}
+              className="btn-secondary flex items-center gap-2 h-10"
+            >
+              <Calendar className="h-4 w-4" />
+              Daily Report
+            </button>
+          </div>
+          <button onClick={() => setShowModal(true)} className="btn-success flex items-center gap-2 h-10">
+            <Plus className="h-4 w-4" />
+            Record Sale
+          </button>
+        </div>
       </div>
 
       <div className="stat-card overflow-hidden">
@@ -505,7 +578,7 @@ export default function Sales() {
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium">Customer</label>
+                  <label className="block text-sm font-medium">Select Customer or Debtor</label>
                   <button
                     type="button"
                     onClick={() => setShowAddCustomer(!showAddCustomer)}
@@ -515,6 +588,28 @@ export default function Sales() {
                     Add New
                   </button>
                 </div>
+                
+                {/* Selected type badge */}
+                {(selectedCustomer.type || selectedCustomer.name) && (
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                      selectedCustomer.type === "customer" 
+                        ? "bg-primary/10 text-primary" 
+                        : selectedCustomer.type === "debtor"
+                        ? "bg-warning/10 text-warning"
+                        : "bg-muted text-muted-foreground"
+                    }`}>
+                      {selectedCustomer.type === "customer" && <User className="h-3 w-3" />}
+                      {selectedCustomer.type === "debtor" && <CreditCard className="h-3 w-3" />}
+                      {selectedCustomer.type === "customer" && "Customer"}
+                      {selectedCustomer.type === "debtor" && "Debtor"}
+                      {!selectedCustomer.type && selectedCustomer.name && "Manual Entry"}
+                    </span>
+                    {selectedCustomer.name && (
+                      <span className="text-sm font-medium">{selectedCustomer.name}</span>
+                    )}
+                  </div>
+                )}
                 
                 {showAddCustomer ? (
                   <div className="p-3 bg-muted rounded-lg space-y-2 mb-2">
@@ -559,12 +654,21 @@ export default function Sales() {
                     onChange={(e) => handleCustomerChange(e.target.value)}
                     className="input-field"
                   >
-                    <option value="">Select existing customer</option>
-                    {customers.map((c) => (
-                      <option key={`${c.source}:${c.id}`} value={`${c.source}:${c.id}`}>
-                        {c.name}{c.source === "debtor" ? " (Debtor)" : ""}
-                      </option>
-                    ))}
+                    <option value="">Select customer or debtor</option>
+                    <optgroup label="Customers">
+                      {customers.filter(c => c.source === "customer").map((c) => (
+                        <option key={`${c.source}:${c.id}`} value={`${c.source}:${c.id}`}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Debtors">
+                      {customers.filter(c => c.source === "debtor").map((c) => (
+                        <option key={`${c.source}:${c.id}`} value={`${c.source}:${c.id}`}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
                 )}
               </div>
@@ -663,6 +767,21 @@ export default function Sales() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Invoice Preview Modal */}
+      {invoicePreview && (
+        <InvoicePreviewModal
+          isOpen={invoicePreview.isOpen}
+          onClose={() => setInvoicePreview(null)}
+          invoiceNumber={invoicePreview.invoiceNumber}
+          date={invoicePreview.date}
+          customerName={invoicePreview.customerName}
+          items={invoicePreview.items}
+          subtotal={invoicePreview.subtotal}
+          total={invoicePreview.total}
+          onPrint={handlePrintInvoice}
+        />
       )}
     </MainLayout>
   );
