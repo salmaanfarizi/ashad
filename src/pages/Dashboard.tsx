@@ -24,6 +24,8 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+import { formatCurrency } from "@/lib/currency";
+import { toast } from "sonner";
 
 interface DashboardStats {
   totalPurchases: number;
@@ -118,17 +120,11 @@ export default function Dashboard() {
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
+      toast.error("Failed to load dashboard data. Please refresh the page.");
     } finally {
       setLoading(false);
     }
   }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-SA", {
-      style: "currency",
-      currency: "SAR",
-    }).format(amount);
-  };
 
   return (
     <MainLayout>

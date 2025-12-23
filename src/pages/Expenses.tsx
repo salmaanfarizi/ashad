@@ -3,6 +3,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/currency";
 
 interface Expense {
   id: string;
@@ -86,6 +87,9 @@ export default function Expenses() {
   }
 
   async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this expense? This action cannot be undone.")) {
+      return;
+    }
     const { error } = await supabase.from("expenses").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete expense");
@@ -94,13 +98,6 @@ export default function Expenses() {
     toast.success("Expense deleted");
     fetchExpenses();
   }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-SA", {
-      style: "currency",
-      currency: "SAR",
-    }).format(amount);
-  };
 
   const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
 

@@ -3,6 +3,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, Edit, CreditCard, History, X, Banknote } from "lucide-react";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/currency";
 
 interface Creditor {
   id: string;
@@ -157,6 +158,9 @@ export default function Creditors() {
   }
 
   async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this creditor? This action cannot be undone.")) {
+      return;
+    }
     const { error } = await supabase.from("creditors").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete creditor");
@@ -225,13 +229,6 @@ export default function Creditors() {
     setSelectedCreditor(null);
     setPayments([]);
   }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-SA", {
-      style: "currency",
-      currency: "SAR",
-    }).format(amount);
-  };
 
   const totalPayables = creditors.reduce((sum, c) => sum + Number(c.amount_owed), 0);
 

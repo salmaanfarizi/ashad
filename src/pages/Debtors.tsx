@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, Edit, Users, Mail, CreditCard, History, X, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { generatePaymentReceiptPDF } from "@/lib/pdfUtils";
+import { formatCurrency } from "@/lib/currency";
 
 interface Debtor {
   id: string;
@@ -128,6 +129,13 @@ export default function Debtors() {
       return;
     }
 
+    // Handle overpayment - warn user but allow it
+    const isOverpayment = paymentAmount > selectedDebtor.amount_owed;
+    if (isOverpayment) {
+      const creditBalance = paymentAmount - selectedDebtor.amount_owed;
+      toast.info(`Customer is overpaying by ${formatCurrency(creditBalance)}. Credit balance will be recorded.`);
+    }
+
     const { error: paymentError } = await supabase.from("debtor_payments").insert({
       debtor_id: selectedDebtor.id,
       amount: paymentAmount,
@@ -141,11 +149,16 @@ export default function Debtors() {
       return;
     }
 
-    // Update debtor's amount owed
-    const newAmountOwed = Math.max(0, selectedDebtor.amount_owed - paymentAmount);
+    // Update debtor's amount owed (negative means credit balance)
+    const newAmountOwed = selectedDebtor.amount_owed - paymentAmount;
     const { error: updateError } = await supabase
       .from("debtors")
-      .update({ amount_owed: newAmountOwed })
+      .update({
+        amount_owed: Math.max(0, newAmountOwed),
+        notes: newAmountOwed < 0
+          ? `${selectedDebtor.notes || ''} [Credit balance: ${formatCurrency(Math.abs(newAmountOwed))}]`.trim()
+          : selectedDebtor.notes
+      })
       .eq("id", selectedDebtor.id);
 
     if (updateError) {
@@ -202,6 +215,9 @@ export default function Debtors() {
   }
 
   async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this debtor? This action cannot be undone.")) {
+      return;
+    }
     const { error } = await supabase.from("debtors").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete debtor");
@@ -270,13 +286,6 @@ export default function Debtors() {
     setSelectedDebtor(null);
     setPayments([]);
   }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-SA", {
-      style: "currency",
-      currency: "SAR",
-    }).format(amount);
-  };
 
   const totalReceivables = debtors.reduce((sum, d) => sum + Number(d.amount_owed), 0);
 
@@ -525,7 +534,6 @@ export default function Debtors() {
                   className="input-field"
                   required
                   min="0.01"
-                  max={selectedDebtor.amount_owed}
                   placeholder="Payment amount"
                 />
               </div>

@@ -3,6 +3,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/currency";
 
 interface CashTransaction {
   id: string;
@@ -74,6 +75,9 @@ export default function Cash() {
   }
 
   async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this transaction? This action cannot be undone.")) {
+      return;
+    }
     const { error } = await supabase.from("cash_transactions").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete transaction");
@@ -82,13 +86,6 @@ export default function Cash() {
     toast.success("Transaction deleted");
     fetchTransactions();
   }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-SA", {
-      style: "currency",
-      currency: "SAR",
-    }).format(amount);
-  };
 
   const totalIn = transactions
     .filter((t) => t.type === "in")

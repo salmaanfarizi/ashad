@@ -33,7 +33,9 @@ const Auth = () => {
   }, [navigate]);
 
   const validateForm = () => {
-    if (!email || !email.includes('@')) {
+    // Proper email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
       toast({
         title: "Invalid email",
         description: "Please enter a valid email address.",
@@ -41,10 +43,10 @@ const Auth = () => {
       });
       return false;
     }
-    if (!password || password.length < 6) {
+    if (!password || password.length < 8) {
       toast({
         title: "Invalid password",
-        description: "Password must be at least 6 characters.",
+        description: "Password must be at least 8 characters.",
         variant: "destructive",
       });
       return false;
@@ -165,7 +167,7 @@ const Auth = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>

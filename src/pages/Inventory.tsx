@@ -3,6 +3,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, Edit, Package } from "lucide-react";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/currency";
 
 interface Product {
   id: string;
@@ -89,6 +90,9 @@ export default function Inventory() {
   }
 
   async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
+      return;
+    }
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete product");
@@ -125,13 +129,6 @@ export default function Inventory() {
       selling_price: "",
     });
   }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-SA", {
-      style: "currency",
-      currency: "SAR",
-    }).format(amount);
-  };
 
   const totalValue = products.reduce(
     (sum, p) => sum + p.quantity * Number(p.cost_price),

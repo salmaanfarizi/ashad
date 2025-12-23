@@ -324,6 +324,9 @@ export default function Sales() {
   }
 
   async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this sale? This action cannot be undone.")) {
+      return;
+    }
     const { error } = await supabase.from("sales").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete sale");

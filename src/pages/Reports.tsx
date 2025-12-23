@@ -25,6 +25,7 @@ import {
   Legend,
 } from "recharts";
 import { generateProfitLossReportPDF } from "@/lib/pdfUtils";
+import { formatCurrency } from "@/lib/currency";
 import { toast } from "sonner";
 
 interface ReportData {
@@ -72,12 +73,62 @@ export default function Reports() {
     fetchReportData();
   }, [dateRange]);
 
+  function getDateRange(range: string): { startDate: string; endDate: string } {
+    const now = new Date();
+    const endDate = now.toISOString().split("T")[0];
+    let startDate: string;
+
+    switch (range) {
+      case "week":
+        const weekAgo = new Date(now);
+        weekAgo.setDate(now.getDate() - 7);
+        startDate = weekAgo.toISOString().split("T")[0];
+        break;
+      case "month":
+        const monthAgo = new Date(now);
+        monthAgo.setMonth(now.getMonth() - 1);
+        startDate = monthAgo.toISOString().split("T")[0];
+        break;
+      case "quarter":
+        const quarterAgo = new Date(now);
+        quarterAgo.setMonth(now.getMonth() - 3);
+        startDate = quarterAgo.toISOString().split("T")[0];
+        break;
+      case "year":
+        const yearAgo = new Date(now);
+        yearAgo.setFullYear(now.getFullYear() - 1);
+        startDate = yearAgo.toISOString().split("T")[0];
+        break;
+      case "all":
+      default:
+        startDate = "1970-01-01";
+        break;
+    }
+
+    return { startDate, endDate };
+  }
+
   async function fetchReportData() {
+    setLoading(true);
     try {
+      const { startDate, endDate } = getDateRange(dateRange);
+
       const [sales, purchases, expenses] = await Promise.all([
-        supabase.from("sales").select("*"),
-        supabase.from("purchases").select("*"),
-        supabase.from("expenses").select("*"),
+        supabase
+          .from("sales")
+          .select("*")
+          .gte("sale_date", startDate)
+          .lte("sale_date", endDate),
+        supabase
+          .from("purchases")
+          .select("*")
+          .gte("purchase_date", startDate)
+          .lte("purchase_date", endDate),
+        supabase
+          .from("expenses")
+          .select("*")
+          .gte("expense_date", startDate)
+          .lte("expense_date", endDate),
       ]);
 
       const totalRevenue =
@@ -109,17 +160,11 @@ export default function Reports() {
       });
     } catch (error) {
       console.error("Error fetching report data:", error);
+      toast.error("Failed to load report data. Please try again.");
     } finally {
       setLoading(false);
     }
   }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-SA", {
-      style: "currency",
-      currency: "SAR",
-    }).format(amount);
-  };
 
   const handleExportPDF = () => {
     generateProfitLossReportPDF(
