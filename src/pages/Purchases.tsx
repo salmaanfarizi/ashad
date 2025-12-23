@@ -18,6 +18,7 @@ interface Purchase {
 interface Product {
   id: string;
   name: string;
+  quantity: number;
 }
 
 export default function Purchases() {
@@ -32,6 +33,7 @@ export default function Purchases() {
     unit_price: "",
     purchase_date: new Date().toISOString().split("T")[0],
     notes: "",
+    payment_status: "paid" as "paid" | "credit",
   });
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function Purchases() {
     try {
       const [purchasesRes, productsRes] = await Promise.all([
         supabase.from("purchases").select("*").order("created_at", { ascending: false }),
-        supabase.from("products").select("id, name"),
+        supabase.from("products").select("id, name, quantity"),
       ]);
 
       if (purchasesRes.data) setPurchases(purchasesRes.data);
@@ -75,7 +77,50 @@ export default function Purchases() {
       return;
     }
 
-    toast.success("Purchase added successfully");
+    // Update inventory (increase stock) if product was selected
+    if (formData.product_id) {
+      const product = products.find((p) => p.id === formData.product_id);
+      if (product) {
+        const newQuantity = (product as any).quantity + quantity;
+        const { error: inventoryError } = await supabase
+          .from("products")
+          .update({ quantity: newQuantity })
+          .eq("id", formData.product_id);
+
+        if (inventoryError) {
+          console.error("Failed to update inventory:", inventoryError);
+        }
+      }
+    }
+
+    // If credit purchase, create creditor entry
+    if (formData.payment_status === "credit" && formData.supplier_name) {
+      // Check if creditor already exists
+      const { data: existingCreditor } = await supabase
+        .from("creditors")
+        .select("*")
+        .eq("name", formData.supplier_name)
+        .maybeSingle();
+
+      if (existingCreditor) {
+        // Update existing creditor's amount
+        await supabase
+          .from("creditors")
+          .update({ amount_owed: existingCreditor.amount_owed + totalAmount })
+          .eq("id", existingCreditor.id);
+      } else {
+        // Create new creditor
+        await supabase.from("creditors").insert({
+          name: formData.supplier_name,
+          amount_owed: totalAmount,
+          notes: `Credit purchase - ${formData.notes || "No notes"}`,
+        });
+      }
+      toast.success("Credit purchase recorded - Stock updated & added to creditors");
+    } else {
+      toast.success("Purchase added - Stock updated");
+    }
+
     setShowModal(false);
     setFormData({
       product_id: "",
@@ -84,6 +129,7 @@ export default function Purchases() {
       unit_price: "",
       purchase_date: new Date().toISOString().split("T")[0],
       notes: "",
+      payment_status: "paid",
     });
     fetchData();
   }
@@ -228,6 +274,33 @@ export default function Purchases() {
                   onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
                   className="input-field"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Payment Status *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, payment_status: "paid" })}
+                    className={`py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                      formData.payment_status === "paid"
+                        ? "bg-success text-success-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    Paid
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, payment_status: "credit" })}
+                    className={`py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                      formData.payment_status === "credit"
+                        ? "bg-amber-500 text-white"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    Credit
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Notes</label>
