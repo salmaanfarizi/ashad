@@ -287,7 +287,7 @@ export default function Debtors() {
 
   return (
     <MainLayout>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="page-title font-heading">Debtors</h1>
           <p className="page-description">People who owe you money</p>
@@ -307,10 +307,10 @@ export default function Debtors() {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Receivables</p>
-              <p className="text-3xl font-bold text-primary">{formatCurrency(totalReceivables)}</p>
+              <p className="text-2xl md:text-3xl font-bold text-primary">{formatCurrency(totalReceivables)}</p>
             </div>
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground shrink-0">
             {debtors.length} debtor{debtors.length !== 1 ? "s" : ""}
           </div>
         </div>
