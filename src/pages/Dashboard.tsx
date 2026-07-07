@@ -35,14 +35,11 @@ interface DashboardStats {
   cashBalance: number;
 }
 
-const mockChartData = [
-  { name: "Jan", sales: 4000, purchases: 2400 },
-  { name: "Feb", sales: 3000, purchases: 1398 },
-  { name: "Mar", sales: 2000, purchases: 9800 },
-  { name: "Apr", sales: 2780, purchases: 3908 },
-  { name: "May", sales: 1890, purchases: 4800 },
-  { name: "Jun", sales: 2390, purchases: 3800 },
-];
+interface MonthlyDatum {
+  name: string;
+  sales: number;
+  purchases: number;
+}
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>({
@@ -54,6 +51,7 @@ export default function Dashboard() {
     totalCreditors: 0,
     cashBalance: 0,
   });
+  const [chartData, setChartData] = useState<MonthlyDatum[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -64,8 +62,8 @@ export default function Dashboard() {
     try {
       const [purchases, sales, expenses, products, debtors, creditors, cashIn, cashOut] =
         await Promise.all([
-          supabase.from("purchases").select("total_amount"),
-          supabase.from("sales").select("total_amount"),
+          supabase.from("purchases").select("total_amount, purchase_date"),
+          supabase.from("sales").select("total_amount, sale_date"),
           supabase.from("expenses").select("amount"),
           supabase.from("products").select("quantity"),
           supabase.from("debtors").select("amount_owed"),
@@ -107,6 +105,30 @@ export default function Dashboard() {
         0
       ) || 0;
 
+      // Group sales/purchases into the last 6 calendar months for the charts
+      const now = new Date();
+      const months = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+        return {
+          key: `${d.getFullYear()}-${d.getMonth()}`,
+          name: d.toLocaleString("en", { month: "short" }),
+        };
+      });
+      const buckets = new Map(
+        months.map((m) => [m.key, { name: m.name, sales: 0, purchases: 0 }])
+      );
+      sales.data?.forEach((s) => {
+        const d = new Date(s.sale_date);
+        const bucket = buckets.get(`${d.getFullYear()}-${d.getMonth()}`);
+        if (bucket) bucket.sales += Number(s.total_amount);
+      });
+      purchases.data?.forEach((p) => {
+        const d = new Date(p.purchase_date);
+        const bucket = buckets.get(`${d.getFullYear()}-${d.getMonth()}`);
+        if (bucket) bucket.purchases += Number(p.total_amount);
+      });
+      setChartData(months.map((m) => buckets.get(m.key)!));
+
       setStats({
         totalPurchases,
         totalSales,
@@ -146,7 +168,6 @@ export default function Dashboard() {
           value={formatCurrency(stats.totalSales)}
           icon={TrendingUp}
           variant="success"
-          trend={{ value: 12.5, isPositive: true }}
         />
         <StatCard
           title="Total Purchases"
@@ -193,7 +214,7 @@ export default function Dashboard() {
         <div className="stat-card">
           <h3 className="text-lg font-semibold mb-4">Sales vs Purchases</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={mockChartData}>
+            <AreaChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
               <YAxis stroke="hsl(var(--muted-foreground))" />
@@ -225,7 +246,7 @@ export default function Dashboard() {
         <div className="stat-card">
           <h3 className="text-lg font-semibold mb-4">Monthly Overview</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={mockChartData}>
+            <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
               <YAxis stroke="hsl(var(--muted-foreground))" />

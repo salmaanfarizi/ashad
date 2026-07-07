@@ -355,8 +355,8 @@ export default function Creditors() {
 
       {/* Add/Edit Creditor Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-foreground/20 backdrop-blur-sm">
+          <div className="bg-card rounded-t-2xl md:rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in max-h-[85vh] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">
               {editingCreditor ? "Edit Creditor" : "Add Creditor"}
             </h2>
@@ -398,7 +398,7 @@ export default function Creditors() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Amount Owed *</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal"
                     step="0.01"
                     value={formData.amount_owed}
                     onChange={(e) => setFormData({ ...formData, amount_owed: e.target.value })}
@@ -442,8 +442,8 @@ export default function Creditors() {
 
       {/* Record Payment Modal */}
       {showPaymentModal && selectedCreditor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-foreground/20 backdrop-blur-sm">
+          <div className="bg-card rounded-t-2xl md:rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Record Payment</h2>
               <button onClick={closePaymentModal} className="p-1 hover:bg-muted rounded">
@@ -461,7 +461,7 @@ export default function Creditors() {
               <div>
                 <label className="block text-sm font-medium mb-1">Amount *</label>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   step="0.01"
                   value={paymentData.amount}
                   onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
@@ -521,8 +521,8 @@ export default function Creditors() {
 
       {/* Payment History Modal */}
       {showHistoryModal && selectedCreditor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg p-6 animate-scale-in max-h-[80vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-foreground/20 backdrop-blur-sm">
+          <div className="bg-card rounded-t-2xl md:rounded-xl shadow-2xl w-full max-w-lg p-6 animate-scale-in max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Payment History</h2>
               <button onClick={closeHistoryModal} className="p-1 hover:bg-muted rounded">
