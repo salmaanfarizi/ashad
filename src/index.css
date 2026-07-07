@@ -152,6 +152,54 @@
     @apply bg-muted/30;
   }
 
+  /* On phones, data tables render as stacked cards. Cells are labelled via
+     their data-label attribute since the header row is hidden. */
+  @media (max-width: 767px) {
+    .data-table thead {
+      @apply hidden;
+    }
+
+    .data-table,
+    .data-table tbody,
+    .data-table tr,
+    .data-table td {
+      @apply block w-full;
+    }
+
+    .data-table tr {
+      @apply mb-3 rounded-xl border border-border/50 bg-card p-2 shadow-sm;
+    }
+
+    .data-table td {
+      @apply flex items-center justify-between gap-3 border-none px-2 py-1.5 text-right;
+    }
+
+    .data-table td::before {
+      content: attr(data-label);
+      @apply shrink-0 text-left font-medium text-muted-foreground;
+    }
+
+    .data-table td:last-child {
+      @apply justify-end pt-2;
+    }
+
+    .data-table td:last-child::before {
+      content: none;
+    }
+
+    .data-table td[colspan] {
+      @apply justify-center text-center;
+    }
+
+    .data-table td[colspan]::before {
+      content: none;
+    }
+
+    .data-table tr:hover td {
+      @apply bg-transparent;
+    }
+  }
+
   .input-field {
     @apply w-full px-4 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all duration-200;
   }
