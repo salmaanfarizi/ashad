@@ -172,8 +172,8 @@ export default function Cash() {
             ) : (
               transactions.map((transaction) => (
                 <tr key={transaction.id} className="animate-fade-in">
-                  <td>{new Date(transaction.transaction_date).toLocaleDateString()}</td>
-                  <td>
+                  <td data-label="Date">{new Date(transaction.transaction_date).toLocaleDateString()}</td>
+                  <td data-label="Type">
                     <span
                       className={`badge ${
                         transaction.type === "in" ? "badge-success" : "badge-danger"
@@ -188,6 +188,7 @@ export default function Cash() {
                     </span>
                   </td>
                   <td
+                    data-label="Amount"
                     className={`font-medium ${
                       transaction.type === "in" ? "text-success" : "text-destructive"
                     }`}
@@ -195,8 +196,8 @@ export default function Cash() {
                     {transaction.type === "in" ? "+" : "-"}
                     {formatCurrency(transaction.amount)}
                   </td>
-                  <td>{transaction.description || "-"}</td>
-                  <td className="text-muted-foreground">{transaction.reference_type || "-"}</td>
+                  <td data-label="Description">{transaction.description || "-"}</td>
+                  <td data-label="Reference" className="text-muted-foreground">{transaction.reference_type || "-"}</td>
                   <td className="text-right">
                     <button
                       onClick={() => handleDelete(transaction.id)}

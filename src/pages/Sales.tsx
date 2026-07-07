@@ -571,17 +571,17 @@ export default function Sales() {
             ) : (
               sales.map((sale) => (
                 <tr key={sale.id} className="animate-fade-in">
-                  <td>{new Date(sale.sale_date).toLocaleDateString()}</td>
-                  <td>{sale.customer_name || "-"}</td>
-                  <td>{sale.quantity}</td>
-                  <td>{formatCurrency(sale.unit_price)}</td>
-                  <td className="font-medium text-success">{formatCurrency(sale.total_amount)}</td>
-                  <td>
+                  <td data-label="Date">{new Date(sale.sale_date).toLocaleDateString()}</td>
+                  <td data-label="Customer">{sale.customer_name || "-"}</td>
+                  <td data-label="Quantity">{sale.quantity}</td>
+                  <td data-label="Unit Price">{formatCurrency(sale.unit_price)}</td>
+                  <td data-label="Total" className="font-medium text-success">{formatCurrency(sale.total_amount)}</td>
+                  <td data-label="Status">
                     <span className={`badge-${sale.payment_status === 'paid' ? 'success' : 'warning'}`}>
                       {sale.payment_status === 'paid' ? 'Paid' : 'Credit'}
                     </span>
                   </td>
-                  <td className="text-muted-foreground max-w-xs truncate">
+                  <td data-label="Notes" className="text-muted-foreground max-w-xs truncate">
                     {sale.notes || "-"}
                   </td>
                   <td className="text-right">

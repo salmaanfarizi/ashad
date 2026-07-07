@@ -175,11 +175,11 @@ export default function Customers() {
             ) : (
               customers.map((customer) => (
                 <tr key={customer.id} className="animate-fade-in">
-                  <td className="font-medium">{customer.name}</td>
-                  <td>{customer.phone || "-"}</td>
-                  <td>{customer.email || "-"}</td>
-                  <td className="max-w-xs truncate">{customer.address || "-"}</td>
-                  <td className="text-muted-foreground max-w-xs truncate">
+                  <td data-label="Name" className="font-medium">{customer.name}</td>
+                  <td data-label="Phone">{customer.phone || "-"}</td>
+                  <td data-label="Email">{customer.email || "-"}</td>
+                  <td data-label="Address" className="max-w-xs truncate">{customer.address || "-"}</td>
+                  <td data-label="Notes" className="text-muted-foreground max-w-xs truncate">
                     {customer.notes || "-"}
                   </td>
                   <td className="text-right">

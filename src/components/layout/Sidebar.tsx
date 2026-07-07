@@ -11,14 +11,10 @@ import {
   BarChart3,
   Camera,
   LogOut,
-  Menu,
   UserCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useState } from "react";
 import mobtechLogo from "@/assets/mobtech-logo.png";
 
 const navigation = [
@@ -95,28 +91,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function Sidebar() {
-  const isMobile = useIsMobile();
-  const [open, setOpen] = useState(false);
-
-  if (isMobile) {
-    return (
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="fixed top-4 left-4 z-50 bg-background shadow-md"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0 bg-sidebar">
-          <SidebarContent onNavigate={() => setOpen(false)} />
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
   return (
     <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-sidebar">
       <SidebarContent />

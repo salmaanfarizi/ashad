@@ -152,17 +152,17 @@ export default function Expenses() {
             ) : (
               expenses.map((expense) => (
                 <tr key={expense.id} className="animate-fade-in">
-                  <td>{new Date(expense.expense_date).toLocaleDateString()}</td>
-                  <td>
+                  <td data-label="Date">{new Date(expense.expense_date).toLocaleDateString()}</td>
+                  <td data-label="Category">
                     <span className="badge bg-warning/10 text-warning">
                       {expense.category}
                     </span>
                   </td>
-                  <td>{expense.description || "-"}</td>
-                  <td className="font-medium text-warning">
+                  <td data-label="Description">{expense.description || "-"}</td>
+                  <td data-label="Amount" className="font-medium text-warning">
                     {formatCurrency(expense.amount)}
                   </td>
-                  <td className="text-muted-foreground max-w-xs truncate">
+                  <td data-label="Notes" className="text-muted-foreground max-w-xs truncate">
                     {expense.notes || "-"}
                   </td>
                   <td className="text-right">

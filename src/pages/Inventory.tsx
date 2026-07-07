@@ -203,7 +203,7 @@ export default function Inventory() {
             ) : (
               products.map((product) => (
                 <tr key={product.id} className="animate-fade-in">
-                  <td>
+                  <td data-label="Product">
                     <div>
                       <p className="font-medium">{product.name}</p>
                       {product.description && (
@@ -211,8 +211,8 @@ export default function Inventory() {
                       )}
                     </div>
                   </td>
-                  <td className="text-muted-foreground">{product.sku || "-"}</td>
-                  <td>
+                  <td data-label="SKU" className="text-muted-foreground">{product.sku || "-"}</td>
+                  <td data-label="Quantity">
                     <span
                       className={`badge ${
                         product.quantity <= 0
@@ -225,9 +225,9 @@ export default function Inventory() {
                       {product.quantity} {product.unit}
                     </span>
                   </td>
-                  <td>{formatCurrency(product.cost_price)}</td>
-                  <td>{formatCurrency(product.selling_price)}</td>
-                  <td className="font-medium">
+                  <td data-label="Cost Price">{formatCurrency(product.cost_price)}</td>
+                  <td data-label="Selling Price">{formatCurrency(product.selling_price)}</td>
+                  <td data-label="Value" className="font-medium">
                     {formatCurrency(product.quantity * Number(product.cost_price))}
                   </td>
                   <td className="text-right">

@@ -338,14 +338,14 @@ export default function Debtors() {
             ) : (
               debtors.map((debtor) => (
                 <tr key={debtor.id} className="animate-fade-in">
-                  <td className="font-medium">{debtor.name}</td>
-                  <td className="text-muted-foreground">
+                  <td data-label="Name" className="font-medium">{debtor.name}</td>
+                  <td data-label="Contact" className="text-muted-foreground">
                     {debtor.phone || debtor.email || "-"}
                   </td>
-                  <td className="font-medium text-primary">
+                  <td data-label="Amount Owed" className="font-medium text-primary">
                     {formatCurrency(debtor.amount_owed)}
                   </td>
-                  <td>
+                  <td data-label="Due Date">
                     {debtor.due_date ? (
                       <span
                         className={`badge ${
@@ -358,7 +358,7 @@ export default function Debtors() {
                       "-"
                     )}
                   </td>
-                  <td className="text-muted-foreground max-w-xs truncate">
+                  <td data-label="Notes" className="text-muted-foreground max-w-xs truncate">
                     {debtor.notes || "-"}
                   </td>
                   <td className="text-right">

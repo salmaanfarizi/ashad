@@ -187,12 +187,12 @@ export default function Purchases() {
             ) : (
               purchases.map((purchase) => (
                 <tr key={purchase.id} className="animate-fade-in">
-                  <td>{new Date(purchase.purchase_date).toLocaleDateString()}</td>
-                  <td>{purchase.supplier_name || "-"}</td>
-                  <td>{purchase.quantity}</td>
-                  <td>{formatCurrency(purchase.unit_price)}</td>
-                  <td className="font-medium">{formatCurrency(purchase.total_amount)}</td>
-                  <td className="text-muted-foreground max-w-xs truncate">
+                  <td data-label="Date">{new Date(purchase.purchase_date).toLocaleDateString()}</td>
+                  <td data-label="Supplier">{purchase.supplier_name || "-"}</td>
+                  <td data-label="Quantity">{purchase.quantity}</td>
+                  <td data-label="Unit Price">{formatCurrency(purchase.unit_price)}</td>
+                  <td data-label="Total" className="font-medium">{formatCurrency(purchase.total_amount)}</td>
+                  <td data-label="Notes" className="text-muted-foreground max-w-xs truncate">
                     {purchase.notes || "-"}
                   </td>
                   <td className="text-right">
