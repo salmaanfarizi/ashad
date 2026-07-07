@@ -100,7 +100,7 @@ export default function Cash() {
 
   return (
     <MainLayout>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="page-title font-heading">Cash Management</h1>
           <p className="page-description">Track cash inflows and outflows</p>

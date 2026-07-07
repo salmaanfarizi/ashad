@@ -518,12 +518,12 @@ export default function Sales() {
 
   return (
     <MainLayout>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="page-title font-heading">Sales</h1>
           <p className="page-description">Track your sales transactions</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Daily Report Section */}
           <div className="flex items-center gap-2">
             <input

@@ -197,7 +197,7 @@ export default function CameraCapture() {
 
   return (
     <MainLayout>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="page-title font-heading">Camera Capture</h1>
           <p className="page-description">Take photos with automatic location recording</p>
