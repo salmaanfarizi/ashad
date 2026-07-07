@@ -618,8 +618,8 @@ export default function Sales() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-foreground/20 backdrop-blur-sm">
+          <div className="bg-card rounded-t-2xl md:rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">Record Sale</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -645,7 +645,7 @@ export default function Sales() {
                       placeholder="Product name *"
                     />
                     <input
-                      type="number"
+                      type="number" inputMode="decimal"
                       step="0.01"
                       value={newProductPrice}
                       onChange={(e) => setNewProductPrice(e.target.value)}
@@ -798,7 +798,7 @@ export default function Sales() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Quantity *</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal"
                     value={formData.quantity}
                     onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                     className="input-field"
@@ -809,7 +809,7 @@ export default function Sales() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Unit Price *</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal"
                     step="0.01"
                     value={formData.unit_price}
                     onChange={(e) => setFormData({ ...formData, unit_price: e.target.value })}
@@ -898,8 +898,8 @@ export default function Sales() {
 
       {/* Sales Return Modal */}
       {showReturnModal && selectedSaleForReturn && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-foreground/20 backdrop-blur-sm">
+          <div className="bg-card rounded-t-2xl md:rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in max-h-[85vh] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">Process Sales Return</h2>
             <div className="bg-muted/50 rounded-lg p-3 mb-4">
               <p className="text-sm text-muted-foreground">Returning items from sale:</p>
@@ -912,7 +912,7 @@ export default function Sales() {
               <div>
                 <label className="block text-sm font-medium mb-1">Quantity to Return *</label>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={returnData.quantity}
                   onChange={(e) => setReturnData({ ...returnData, quantity: e.target.value })}
                   className="input-field"

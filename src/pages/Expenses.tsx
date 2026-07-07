@@ -182,8 +182,8 @@ export default function Expenses() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-foreground/20 backdrop-blur-sm">
+          <div className="bg-card rounded-t-2xl md:rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in max-h-[85vh] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">Add Expense</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -216,7 +216,7 @@ export default function Expenses() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Amount *</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal"
                     step="0.01"
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}

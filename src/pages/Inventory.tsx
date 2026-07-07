@@ -255,8 +255,8 @@ export default function Inventory() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-foreground/20 backdrop-blur-sm">
+          <div className="bg-card rounded-t-2xl md:rounded-xl shadow-2xl w-full max-w-md p-6 animate-scale-in max-h-[85vh] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">
               {editingProduct ? "Edit Product" : "Add Product"}
             </h2>
@@ -312,7 +312,7 @@ export default function Inventory() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Quantity</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal"
                     value={formData.quantity}
                     onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                     className="input-field"
@@ -322,7 +322,7 @@ export default function Inventory() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Cost Price</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal"
                     step="0.01"
                     value={formData.cost_price}
                     onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
@@ -333,7 +333,7 @@ export default function Inventory() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Selling Price</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal"
                     step="0.01"
                     value={formData.selling_price}
                     onChange={(e) => setFormData({ ...formData, selling_price: e.target.value })}
